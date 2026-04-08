@@ -19,3 +19,8 @@ spring:
         default_batch_fetch_size: 100
 
     open-in-view: false
+
+jwt:
+  secret: ${JWT_SECRET:my-secret-key-for-ch-booking-system-web-app-at-least-32-characters}
+  access-token-expiry: 180_000 #30분
+  refresh-token-expiry: 2_592_000_000 #30일
