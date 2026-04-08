@@ -69,3 +69,5 @@ Temporary Items
 CLAUDE.md
 .claude
 .env
+*.env
+.env.*
