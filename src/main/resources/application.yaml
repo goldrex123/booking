@@ -24,3 +24,15 @@ jwt:
   secret: ${JWT_SECRET:my-secret-key-for-ch-booking-system-web-app-at-least-32-characters}
   access-token-expiry: 180_000 #30분
   refresh-token-expiry: 2_592_000_000 #30일
+
+springdoc:
+  swagger-ui:
+    path: /swagger-ui.html
+    operations-sorter: method
+    tags-sorter: alpha
+    disable-swagger-default-url: true
+    persist-authorization: true
+  api-docs:
+    path: /v3/api-docs
+  default-consumes-media-type: application/json
+  default-produces-media-type: application/json
