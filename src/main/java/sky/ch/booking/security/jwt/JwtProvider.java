@@ -3,11 +3,13 @@ package sky.ch.booking.security.jwt;
 import io.jsonwebtoken.Claims;
 import io.jsonwebtoken.JwtException;
 import io.jsonwebtoken.Jwts;
+import io.jsonwebtoken.security.Keys;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
 
 import javax.crypto.SecretKey;
+import java.nio.charset.StandardCharsets;
 import java.util.Date;
 
 @Slf4j
@@ -19,11 +21,11 @@ public class JwtProvider {
     private final long refreshTokenExpiry;
 
     public JwtProvider(
-            @Value("${jwt.secret}") SecretKey secretKey,
+            @Value("${jwt.secret}") String secretKey,
             @Value("${jwt.access-token-expiry}") long accessTokenExpiry,
             @Value("${jwt.refresh-token-expiry}") long refreshTokenExpiry
     ) {
-        this.secretKey = secretKey;
+        this.secretKey = Keys.hmacShaKeyFor(secretKey.getBytes(StandardCharsets.UTF_8));
         this.accessTokenExpiry = accessTokenExpiry;
         this.refreshTokenExpiry = refreshTokenExpiry;
     }
