@@ -13,8 +13,8 @@ public record ApiResponse<T>(
         String message
 ) {
 
-    public static <T> ApiResponse<T> ok(T data) {
-        return new ApiResponse<>(true, CommonCode.SUCCESS.getCode(), data, CommonCode.SUCCESS.getMessage());
+    public static <T> ApiResponse<T> ok(CommonCode code, T data) {
+        return new ApiResponse<>(true, code.getCode(), data, code.getMessage());
     }
 
     public static ApiResponse<Void> fail(BaseCode errorCode) {
