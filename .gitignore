@@ -71,3 +71,4 @@ CLAUDE.md
 .env
 *.env
 .env.*
+docs/**
