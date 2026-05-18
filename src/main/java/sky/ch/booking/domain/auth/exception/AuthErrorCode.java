@@ -13,7 +13,9 @@ public enum AuthErrorCode implements BaseCode {
     INVALID_ACCESS_TOKEN(HttpStatus.UNAUTHORIZED, "A001", "유효하지 않거나 만료된 Access Token 입니다"),
     ACCESS_TOKEN_REQUIRED(HttpStatus.UNAUTHORIZED, "A002", "인증이 필요합니다"),
 
-    ACCESS_DENIED(HttpStatus.FORBIDDEN, "A003", "접근 권한이 없습니다")
+    ACCESS_DENIED(HttpStatus.FORBIDDEN, "A003", "접근 권한이 없습니다"),
+
+    DUPLICATE_USER_EMAIL(HttpStatus.CONFLICT, "A004", "이미 가입된 이메일입니다")
     ;
     private final HttpStatus httpStatus;
     private final String code;
