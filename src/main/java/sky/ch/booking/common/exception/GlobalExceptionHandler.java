@@ -2,6 +2,7 @@ package sky.ch.booking.common.exception;
 
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.ResponseEntity;
+import org.springframework.http.converter.HttpMessageNotReadableException;
 import org.springframework.validation.FieldError;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
@@ -20,6 +21,12 @@ public class GlobalExceptionHandler {
         log.error("Handle BusinessException - {}", e.getMessage());
         BaseCode errorCode = e.getErrorCode();
         return ResponseEntity.status(errorCode.getHttpStatus()).body(ApiResponse.fail(errorCode));
+    }
+
+    @ExceptionHandler(HttpMessageNotReadableException.class)
+    public ResponseEntity<ApiResponse<Void>> handleHttpMessageNotReadable(HttpMessageNotReadableException e) {
+        log.error("Handle HttpMessageNotReadableException - {}", e.getMessage());
+        return ResponseEntity.badRequest().body(ApiResponse.fail(CommonCode.INVALID_INPUT));
     }
 
     @ExceptionHandler(MethodArgumentNotValidException.class)

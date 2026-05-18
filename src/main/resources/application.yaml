@@ -1,29 +1,19 @@
 spring:
   application:
     name: booking
+  threads:
+    virtual:
+      enabled: true
+  profiles:
+    active: dev
 
-  datasource:
-    url: ${DATABASE_URL:jdbc:mysql://localhost:3306/test?useSSL=false&allowPublicKeyRetrieval=true&serverTimezone=Asia/Seoul}
-    username: ${MYSQL_USER:test}
-    password: ${MYSQL_PASSWORD:test}
-    driver-class-name: com.mysql.cj.jdbc.Driver
-
-  jpa:
-    hibernate:
-      ddl-auto: create
-    show-sql: true
-    properties:
-      hibernate:
-        format_sql: true
-        dialect: org.hibernate.dialect.MySQLDialect
-        default_batch_fetch_size: 100
-
-    open-in-view: false
+app:
+  cors:
+    allowed-origins: http://localhost:3000
 
 jwt:
-  secret: ${JWT_SECRET:my-secret-key-for-ch-booking-system-web-app-at-least-32-characters}
-  access-token-expiry: 180_000 #30분
-  refresh-token-expiry: 2_592_000_000 #30일
+  access-token-expiry: 1_800_000    # 30분
+  refresh-token-expiry: 2_592_000_000  # 30일
 
 springdoc:
   swagger-ui:
