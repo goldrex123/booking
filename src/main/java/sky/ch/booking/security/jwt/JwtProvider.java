@@ -97,7 +97,8 @@ public class JwtProvider {
         return parseClaims(token).get("role", String.class);
     }
 
-
-
-
+    public long getRefreshTokenExpiry() {
+        return refreshTokenExpiry;
+    }
 }
+

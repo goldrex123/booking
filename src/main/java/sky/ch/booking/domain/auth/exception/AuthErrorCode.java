@@ -9,14 +9,13 @@ import sky.ch.booking.common.exception.BaseCode;
 @Getter
 public enum AuthErrorCode implements BaseCode {
 
-    // 인증/인가 (A)
     INVALID_ACCESS_TOKEN(HttpStatus.UNAUTHORIZED, "A001", "유효하지 않거나 만료된 Access Token 입니다"),
     ACCESS_TOKEN_REQUIRED(HttpStatus.UNAUTHORIZED, "A002", "인증이 필요합니다"),
-
     ACCESS_DENIED(HttpStatus.FORBIDDEN, "A003", "접근 권한이 없습니다"),
-
-    DUPLICATE_USER_EMAIL(HttpStatus.CONFLICT, "A004", "이미 가입된 이메일입니다")
+    DUPLICATE_USER_EMAIL(HttpStatus.CONFLICT, "A004", "이미 가입된 이메일입니다"),
+    INVALID_CREDENTIALS(HttpStatus.UNAUTHORIZED, "A005", "이메일 또는 비밀번호가 올바르지 않습니다"),
     ;
+
     private final HttpStatus httpStatus;
     private final String code;
     private final String message;

@@ -34,6 +34,9 @@ public class User extends BaseTimeEntity {
     @Column(nullable = false)
     private Role role;
 
+    @Column(length = 512)
+    private String refreshToken;
+
     @Builder(access = AccessLevel.PRIVATE)
     private User(String email, String password, String name, Department department, Role role) {
         this.email = email;
@@ -51,5 +54,9 @@ public class User extends BaseTimeEntity {
                 .department(department)
                 .role(role)
                 .build();
+    }
+
+    public void updateRefreshToken(String refreshToken) {
+        this.refreshToken = refreshToken;
     }
 }
