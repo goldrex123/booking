@@ -9,7 +9,10 @@ import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
 import sky.ch.booking.config.SecurityConfig;
+import sky.ch.booking.domain.auth.dto.LoginRequest;
+import sky.ch.booking.domain.auth.dto.LoginResult;
 import sky.ch.booking.domain.auth.dto.SignupRequest;
+import sky.ch.booking.domain.auth.dto.UserInfo;
 import sky.ch.booking.domain.auth.entity.Department;
 import sky.ch.booking.domain.auth.exception.AuthErrorCode;
 import sky.ch.booking.domain.auth.exception.AuthException;
@@ -18,9 +21,11 @@ import sky.ch.booking.security.jwt.JwtProvider;
 import tools.jackson.databind.ObjectMapper;
 
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.BDDMockito.given;
 import static org.mockito.Mockito.doNothing;
 import static org.mockito.Mockito.doThrow;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.cookie;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
@@ -40,6 +45,8 @@ class AuthControllerTest {
 
     @MockitoBean
     private JwtProvider jwtProvider;
+
+    // ==================== signup ====================
 
     @Test
     void signup_성공_201반환() throws Exception {
@@ -121,6 +128,56 @@ class AuthControllerTest {
         mockMvc.perform(post("/api/auth/signup")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(requestWithNullDept))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.success").value(false));
+    }
+
+    // ==================== login ====================
+
+    @Test
+    void login_성공_200반환및쿠키설정() throws Exception {
+        // given
+        LoginRequest request = new LoginRequest("test@test.com", "password1!");
+        UserInfo userInfo = new UserInfo(1L, "test@test.com", "홍길동", "USER");
+        LoginResult loginResult = new LoginResult("access-token", "refresh-token", userInfo);
+        given(authService.login(any(LoginRequest.class))).willReturn(loginResult);
+        given(jwtProvider.getRefreshTokenExpiry()).willReturn(2_592_000_000L);
+
+        // when / then
+        mockMvc.perform(post("/api/auth/login")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(request)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.success").value(true))
+                .andExpect(jsonPath("$.data.accessToken").value("access-token"))
+                .andExpect(jsonPath("$.data.userInfo.email").value("test@test.com"))
+                .andExpect(cookie().httpOnly("refreshToken", true))
+                .andExpect(cookie().path("refreshToken", "/api/auth/refresh"));
+    }
+
+    @Test
+    void login_잘못된자격증명_401반환() throws Exception {
+        // given
+        LoginRequest request = new LoginRequest("test@test.com", "wrongPassword!");
+        given(authService.login(any(LoginRequest.class)))
+                .willThrow(new AuthException(AuthErrorCode.INVALID_CREDENTIALS));
+
+        // when / then
+        mockMvc.perform(post("/api/auth/login")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(request)))
+                .andExpect(status().isUnauthorized())
+                .andExpect(jsonPath("$.success").value(false))
+                .andExpect(jsonPath("$.code").value("A005"));
+    }
+
+    @Test
+    void login_빈이메일_400반환() throws Exception {
+        LoginRequest request = new LoginRequest("", "password1!");
+
+        mockMvc.perform(post("/api/auth/login")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(request)))
                 .andExpect(status().isBadRequest())
                 .andExpect(jsonPath("$.success").value(false));
     }
