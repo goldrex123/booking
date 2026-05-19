@@ -6,6 +6,8 @@ import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.security.crypto.password.PasswordEncoder;
+import sky.ch.booking.domain.auth.dto.LoginRequest;
+import sky.ch.booking.domain.auth.dto.LoginResult;
 import sky.ch.booking.domain.auth.dto.SignupRequest;
 import sky.ch.booking.domain.auth.entity.Department;
 import sky.ch.booking.domain.auth.entity.Role;
@@ -13,6 +15,9 @@ import sky.ch.booking.domain.auth.entity.User;
 import sky.ch.booking.domain.auth.exception.AuthErrorCode;
 import sky.ch.booking.domain.auth.exception.AuthException;
 import sky.ch.booking.domain.auth.repository.UserRepository;
+import sky.ch.booking.security.jwt.JwtProvider;
+
+import java.util.Optional;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
@@ -33,6 +38,11 @@ class AuthServiceTest {
 
     @Mock
     private UserRepository userRepository;
+
+    @Mock
+    private JwtProvider jwtProvider;
+
+    // ==================== signup ====================
 
     @Test
     void signup_이메일중복_예외발생() {
@@ -80,5 +90,59 @@ class AuthServiceTest {
         var captor = forClass(User.class);
         then(userRepository).should().save(captor.capture());
         assertThat(captor.getValue().getPassword()).isNotEqualTo(rawPassword);
+    }
+
+    // ==================== login ====================
+
+    @Test
+    void login_성공_LoginResult반환() {
+        // given
+        User user = User.create("test@test.com", "encodedPw", "홍길동", Department.YOUTH, Role.USER);
+        LoginRequest request = new LoginRequest("test@test.com", "password1!");
+
+        given(userRepository.findByEmail("test@test.com")).willReturn(Optional.of(user));
+        given(passwordEncoder.matches("password1!", "encodedPw")).willReturn(true);
+        given(jwtProvider.generateAccessToken(any(), any())).willReturn("access-token");
+        given(jwtProvider.generateRefreshToken(any())).willReturn("refresh-token");
+
+        // when
+        LoginResult result = authService.login(request);
+
+        // then
+        assertThat(result.accessToken()).isEqualTo("access-token");
+        assertThat(result.refreshToken()).isEqualTo("refresh-token");
+        assertThat(result.userInfo().email()).isEqualTo("test@test.com");
+        assertThat(result.userInfo().name()).isEqualTo("홍길동");
+        assertThat(result.userInfo().role()).isEqualTo("USER");
+        assertThat(user.getRefreshToken()).isEqualTo("refresh-token");
+    }
+
+    @Test
+    void login_이메일없음_예외발생() {
+        // given
+        LoginRequest request = new LoginRequest("notfound@test.com", "password1!");
+        given(userRepository.findByEmail("notfound@test.com")).willReturn(Optional.empty());
+
+        // when / then
+        assertThatThrownBy(() -> authService.login(request))
+                .isInstanceOf(AuthException.class)
+                .extracting(e -> ((AuthException) e).getErrorCode())
+                .isEqualTo(AuthErrorCode.INVALID_CREDENTIALS);
+    }
+
+    @Test
+    void login_비밀번호불일치_예외발생() {
+        // given
+        User user = User.create("test@test.com", "encodedPw", "홍길동", Department.YOUTH, Role.USER);
+        LoginRequest request = new LoginRequest("test@test.com", "wrongPassword!");
+
+        given(userRepository.findByEmail("test@test.com")).willReturn(Optional.of(user));
+        given(passwordEncoder.matches("wrongPassword!", "encodedPw")).willReturn(false);
+
+        // when / then
+        assertThatThrownBy(() -> authService.login(request))
+                .isInstanceOf(AuthException.class)
+                .extracting(e -> ((AuthException) e).getErrorCode())
+                .isEqualTo(AuthErrorCode.INVALID_CREDENTIALS);
     }
 }
