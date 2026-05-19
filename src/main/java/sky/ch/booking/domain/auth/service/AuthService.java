@@ -55,6 +55,6 @@ public class AuthService {
 
         user.updateRefreshToken(refreshToken);
 
-        return new LoginResult(accessToken, refreshToken, UserInfo.from(user));
+        return new LoginResult(accessToken, refreshToken, jwtProvider.getRefreshTokenExpiry(), UserInfo.from(user));
     }
 }

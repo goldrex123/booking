@@ -19,7 +19,6 @@ import sky.ch.booking.domain.auth.dto.LoginRequest;
 import sky.ch.booking.domain.auth.dto.LoginResult;
 import sky.ch.booking.domain.auth.dto.SignupRequest;
 import sky.ch.booking.domain.auth.service.AuthService;
-import sky.ch.booking.security.jwt.JwtProvider;
 
 import java.time.Duration;
 
@@ -29,8 +28,9 @@ import java.time.Duration;
 @RequestMapping("/api/auth")
 public class AuthController {
 
+    private static final String REFRESH_TOKEN_COOKIE = "refreshToken";
+
     private final AuthService authService;
-    private final JwtProvider jwtProvider;
 
     @Operation(
             summary = "회원가입",
@@ -64,12 +64,12 @@ public class AuthController {
     ) {
         LoginResult result = authService.login(loginRequest);
 
-        ResponseCookie refreshCookie = ResponseCookie.from("refreshToken", result.refreshToken())
+        ResponseCookie refreshCookie = ResponseCookie.from(REFRESH_TOKEN_COOKIE, result.refreshToken())
                 .httpOnly(true)
                 .secure(true)
                 .sameSite("Strict")
                 .path("/api/auth/refresh")
-                .maxAge(Duration.ofMillis(jwtProvider.getRefreshTokenExpiry()))
+                .maxAge(Duration.ofMillis(result.refreshTokenExpiry()))
                 .build();
 
         return ResponseEntity.ok()

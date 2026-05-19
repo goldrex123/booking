@@ -139,9 +139,8 @@ class AuthControllerTest {
         // given
         LoginRequest request = new LoginRequest("test@test.com", "password1!");
         UserInfo userInfo = new UserInfo(1L, "test@test.com", "홍길동", "USER");
-        LoginResult loginResult = new LoginResult("access-token", "refresh-token", userInfo);
+        LoginResult loginResult = new LoginResult("access-token", "refresh-token", 2_592_000_000L, userInfo);
         given(authService.login(any(LoginRequest.class))).willReturn(loginResult);
-        given(jwtProvider.getRefreshTokenExpiry()).willReturn(2_592_000_000L);
 
         // when / then
         mockMvc.perform(post("/api/auth/login")
@@ -152,7 +151,8 @@ class AuthControllerTest {
                 .andExpect(jsonPath("$.data.accessToken").value("access-token"))
                 .andExpect(jsonPath("$.data.userInfo.email").value("test@test.com"))
                 .andExpect(cookie().httpOnly("refreshToken", true))
-                .andExpect(cookie().path("refreshToken", "/api/auth/refresh"));
+                .andExpect(cookie().path("refreshToken", "/api/auth/refresh"))
+                .andExpect(cookie().secure("refreshToken", true));
     }
 
     @Test
@@ -169,6 +169,17 @@ class AuthControllerTest {
                 .andExpect(status().isUnauthorized())
                 .andExpect(jsonPath("$.success").value(false))
                 .andExpect(jsonPath("$.code").value("A005"));
+    }
+
+    @Test
+    void login_빈비밀번호_400반환() throws Exception {
+        LoginRequest request = new LoginRequest("test@test.com", "");
+
+        mockMvc.perform(post("/api/auth/login")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(request)))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.success").value(false));
     }
 
     @Test
