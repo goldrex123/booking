@@ -60,8 +60,33 @@ public class AuthService {
 
     @Transactional
     public void logout(Long userId) {
-        User user = userRepository.findById(userId)
-                .orElseThrow(() -> new AuthException(AuthErrorCode.USER_NOT_FOUND));
+        User user = findUserById(userId);
         user.updateRefreshToken(null);
+    }
+
+    @Transactional
+    public LoginResult refresh(String refreshToken) {
+        if (!jwtProvider.validateToken(refreshToken)) {
+            throw new AuthException(AuthErrorCode.INVALID_REFRESH_TOKEN);
+        }
+
+        String userId = jwtProvider.getUserId(refreshToken);
+        User user = userRepository.findByIdForUpdate(Long.parseLong(userId))
+                .orElseThrow(() -> new AuthException(AuthErrorCode.USER_NOT_FOUND));
+
+        if (user.getRefreshToken() == null || !user.getRefreshToken().equals(refreshToken)) {
+            throw new AuthException(AuthErrorCode.INVALID_REFRESH_TOKEN);
+        }
+
+        String newAccessToken = jwtProvider.generateAccessToken(userId, user.getRole().name());
+        String newRefreshToken = jwtProvider.generateRefreshToken(userId);
+        user.updateRefreshToken(newRefreshToken);
+
+        return new LoginResult(newAccessToken, newRefreshToken, jwtProvider.getRefreshTokenExpiry(), UserInfo.from(user));
+    }
+
+    private User findUserById(Long userId) {
+        return userRepository.findById(userId)
+                .orElseThrow(() -> new AuthException(AuthErrorCode.USER_NOT_FOUND));
     }
 }

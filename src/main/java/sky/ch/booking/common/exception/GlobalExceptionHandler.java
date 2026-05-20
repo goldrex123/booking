@@ -5,6 +5,7 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.http.converter.HttpMessageNotReadableException;
 import org.springframework.validation.FieldError;
 import org.springframework.web.bind.MethodArgumentNotValidException;
+import org.springframework.web.bind.MissingRequestCookieException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
 import sky.ch.booking.common.ApiResponse;
@@ -26,6 +27,12 @@ public class GlobalExceptionHandler {
     @ExceptionHandler(HttpMessageNotReadableException.class)
     public ResponseEntity<ApiResponse<Void>> handleHttpMessageNotReadable(HttpMessageNotReadableException e) {
         log.error("Handle HttpMessageNotReadableException - {}", e.getMessage());
+        return ResponseEntity.badRequest().body(ApiResponse.fail(CommonCode.INVALID_INPUT));
+    }
+
+    @ExceptionHandler(MissingRequestCookieException.class)
+    public ResponseEntity<ApiResponse<Void>> handleMissingRequestCookie(MissingRequestCookieException e) {
+        log.error("Handle MissingRequestCookieException - {}", e.getMessage());
         return ResponseEntity.badRequest().body(ApiResponse.fail(CommonCode.INVALID_INPUT));
     }
 
