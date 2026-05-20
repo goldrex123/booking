@@ -8,6 +8,7 @@ import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseCookie;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -19,6 +20,7 @@ import sky.ch.booking.domain.auth.dto.LoginRequest;
 import sky.ch.booking.domain.auth.dto.LoginResult;
 import sky.ch.booking.domain.auth.dto.SignupRequest;
 import sky.ch.booking.domain.auth.service.AuthService;
+import sky.ch.booking.security.userdetails.CustomUserDetails;
 
 import java.time.Duration;
 
@@ -64,16 +66,40 @@ public class AuthController {
     ) {
         LoginResult result = authService.login(loginRequest);
 
-        ResponseCookie refreshCookie = ResponseCookie.from(REFRESH_TOKEN_COOKIE, result.refreshToken())
+        ResponseCookie refreshCookie = buildRefreshCookie(result.refreshToken(), result.refreshTokenExpiry());
+        return ResponseEntity.ok()
+                .header(HttpHeaders.SET_COOKIE, refreshCookie.toString())
+                .body(ApiResponse.ok(CommonCode.SUCCESS, new AuthResponse(result.accessToken(), result.userInfo())));
+    }
+
+    @Operation(
+            summary = "로그아웃",
+            description = "RefreshToken을 무효화하고 쿠키를 만료시킵니다.",
+            responses = {
+                    @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "204", description = "로그아웃 성공"),
+                    @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "401", description = "인증 필요")
+            }
+    )
+    @PostMapping("/logout")
+    public ResponseEntity<Void> logout(
+            @AuthenticationPrincipal CustomUserDetails customUserDetails
+    ) {
+        Long userId = Long.parseLong(customUserDetails.getUsername());
+        authService.logout(userId);
+
+        ResponseCookie expiredCookie = buildRefreshCookie("", 0L);
+        return ResponseEntity.noContent()
+                .header(HttpHeaders.SET_COOKIE, expiredCookie.toString())
+                .build();
+    }
+
+    private ResponseCookie buildRefreshCookie(String value, long maxAgeMillis) {
+        return ResponseCookie.from(REFRESH_TOKEN_COOKIE, value)
                 .httpOnly(true)
                 .secure(true)
                 .sameSite("Strict")
                 .path("/api/auth/refresh")
-                .maxAge(Duration.ofMillis(result.refreshTokenExpiry()))
+                .maxAge(Duration.ofMillis(maxAgeMillis))
                 .build();
-
-        return ResponseEntity.ok()
-                .header(HttpHeaders.SET_COOKIE, refreshCookie.toString())
-                .body(ApiResponse.ok(CommonCode.SUCCESS, new AuthResponse(result.accessToken(), result.userInfo())));
     }
 }

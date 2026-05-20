@@ -57,4 +57,11 @@ public class AuthService {
 
         return new LoginResult(accessToken, refreshToken, jwtProvider.getRefreshTokenExpiry(), UserInfo.from(user));
     }
+
+    @Transactional
+    public void logout(Long userId) {
+        User user = userRepository.findById(userId)
+                .orElseThrow(() -> new AuthException(AuthErrorCode.USER_NOT_FOUND));
+        user.updateRefreshToken(null);
+    }
 }
