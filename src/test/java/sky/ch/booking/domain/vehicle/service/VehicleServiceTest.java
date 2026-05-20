@@ -1,0 +1,63 @@
+package sky.ch.booking.domain.vehicle.service;
+
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.InjectMocks;
+import org.mockito.Mock;
+import org.mockito.junit.jupiter.MockitoExtension;
+import sky.ch.booking.domain.vehicle.dto.VehicleResponse;
+import sky.ch.booking.domain.vehicle.entity.Vehicle;
+import sky.ch.booking.domain.vehicle.entity.VehicleStatus;
+import sky.ch.booking.domain.vehicle.repository.VehicleRepository;
+
+import java.util.List;
+
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.mockito.BDDMockito.given;
+import static org.mockito.BDDMockito.then;
+
+@ExtendWith(MockitoExtension.class)
+class VehicleServiceTest {
+
+    @InjectMocks
+    private VehicleService vehicleService;
+
+    @Mock
+    private VehicleRepository vehicleRepository;
+
+    // ==================== getAllVehicles ====================
+
+    @Test
+    void getAllVehicles_차량존재_VehicleResponse목록반환() {
+        // given
+        Vehicle v1 = Vehicle.create("소나타", "12가3456", 5, null);
+        Vehicle v2 = Vehicle.create("스타리아", "34나5678", 11, "정비 중");
+        given(vehicleRepository.findAll()).willReturn(List.of(v1, v2));
+
+        // when
+        List<VehicleResponse> result = vehicleService.getAllVehicles();
+
+        // then
+        assertThat(result).hasSize(2);
+        assertThat(result.get(0).model()).isEqualTo("소나타");
+        assertThat(result.get(0).licensePlate()).isEqualTo("12가3456");
+        assertThat(result.get(0).seats()).isEqualTo(5);
+        assertThat(result.get(0).status()).isEqualTo(VehicleStatus.ACTIVE);
+        assertThat(result.get(0).note()).isNull();
+        assertThat(result.get(1).model()).isEqualTo("스타리아");
+        assertThat(result.get(1).note()).isEqualTo("정비 중");
+    }
+
+    @Test
+    void getAllVehicles_차량없음_빈목록반환() {
+        // given
+        given(vehicleRepository.findAll()).willReturn(List.of());
+
+        // when
+        List<VehicleResponse> result = vehicleService.getAllVehicles();
+
+        // then
+        assertThat(result).isEmpty();
+        then(vehicleRepository).should().findAll();
+    }
+}
