@@ -17,6 +17,7 @@ import sky.ch.booking.domain.auth.exception.AuthException;
 import sky.ch.booking.domain.auth.repository.UserRepository;
 import sky.ch.booking.security.jwt.JwtProvider;
 
+import java.time.Duration;
 import java.util.Optional;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -172,5 +173,75 @@ class AuthServiceTest {
                 .isInstanceOf(AuthException.class)
                 .extracting(e -> ((AuthException) e).getErrorCode())
                 .isEqualTo(AuthErrorCode.USER_NOT_FOUND);
+    }
+
+    // ==================== refresh ====================
+
+    @Test
+    void refresh_성공_LoginResult반환() {
+        // given
+        User user = User.create("test@test.com", "encodedPw", "홍길동", Department.YOUTH, Role.USER);
+        user.updateRefreshToken("valid-refresh-token");
+
+        given(jwtProvider.validateToken("valid-refresh-token")).willReturn(true);
+        given(jwtProvider.getUserId("valid-refresh-token")).willReturn("1");
+        given(userRepository.findByIdForUpdate(1L)).willReturn(Optional.of(user));
+        given(jwtProvider.generateAccessToken("1", "USER")).willReturn("new-access-token");
+        given(jwtProvider.generateRefreshToken("1")).willReturn("new-refresh-token");
+        given(jwtProvider.getRefreshTokenExpiry()).willReturn(Duration.ofMillis(2_592_000_000L));
+
+        // when
+        LoginResult result = authService.refresh("valid-refresh-token");
+
+        // then
+        assertThat(result.accessToken()).isEqualTo("new-access-token");
+        assertThat(result.refreshToken()).isEqualTo("new-refresh-token");
+        assertThat(result.refreshTokenExpiry()).isEqualTo(Duration.ofMillis(2_592_000_000L));
+        assertThat(user.getRefreshToken()).isEqualTo("new-refresh-token");
+    }
+
+    @Test
+    void refresh_유효하지않은토큰_예외발생() {
+        // given
+        given(jwtProvider.validateToken("invalid-token")).willReturn(false);
+
+        // when / then
+        assertThatThrownBy(() -> authService.refresh("invalid-token"))
+                .isInstanceOf(AuthException.class)
+                .extracting(e -> ((AuthException) e).getErrorCode())
+                .isEqualTo(AuthErrorCode.INVALID_REFRESH_TOKEN);
+    }
+
+    @Test
+    void refresh_DB불일치_예외발생() {
+        // given
+        User user = User.create("test@test.com", "encodedPw", "홍길동", Department.YOUTH, Role.USER);
+        user.updateRefreshToken("stored-token");
+
+        given(jwtProvider.validateToken("request-token")).willReturn(true);
+        given(jwtProvider.getUserId("request-token")).willReturn("1");
+        given(userRepository.findByIdForUpdate(1L)).willReturn(Optional.of(user));
+
+        // when / then
+        assertThatThrownBy(() -> authService.refresh("request-token"))
+                .isInstanceOf(AuthException.class)
+                .extracting(e -> ((AuthException) e).getErrorCode())
+                .isEqualTo(AuthErrorCode.INVALID_REFRESH_TOKEN);
+    }
+
+    @Test
+    void refresh_로그아웃유저_예외발생() {
+        // given - refreshToken이 null인 유저 (로그아웃 상태)
+        User user = User.create("test@test.com", "encodedPw", "홍길동", Department.YOUTH, Role.USER);
+
+        given(jwtProvider.validateToken("some-token")).willReturn(true);
+        given(jwtProvider.getUserId("some-token")).willReturn("1");
+        given(userRepository.findByIdForUpdate(1L)).willReturn(Optional.of(user));
+
+        // when / then
+        assertThatThrownBy(() -> authService.refresh("some-token"))
+                .isInstanceOf(AuthException.class)
+                .extracting(e -> ((AuthException) e).getErrorCode())
+                .isEqualTo(AuthErrorCode.INVALID_REFRESH_TOKEN);
     }
 }

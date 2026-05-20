@@ -1,5 +1,7 @@
 package sky.ch.booking.domain.auth.controller;
 
+import jakarta.servlet.http.Cookie;
+import java.time.Duration;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.webmvc.test.autoconfigure.WebMvcTest;
@@ -141,7 +143,7 @@ class AuthControllerTest {
         // given
         LoginRequest request = new LoginRequest("test@test.com", "password1!");
         UserInfo userInfo = new UserInfo(1L, "test@test.com", "홍길동", "USER");
-        LoginResult loginResult = new LoginResult("access-token", "refresh-token", 2_592_000_000L, userInfo);
+        LoginResult loginResult = new LoginResult("access-token", "refresh-token", Duration.ofMillis(2_592_000_000L), userInfo);
         given(authService.login(any(LoginRequest.class))).willReturn(loginResult);
 
         // when / then
@@ -219,5 +221,45 @@ class AuthControllerTest {
                 .andExpect(status().isUnauthorized())
                 .andExpect(jsonPath("$.success").value(false))
                 .andExpect(jsonPath("$.code").value("A002"));
+    }
+
+    // ==================== refresh ====================
+
+    @Test
+    void refresh_성공_200반환및새쿠키설정() throws Exception {
+        // given
+        UserInfo userInfo = new UserInfo(1L, "test@test.com", "홍길동", "USER");
+        LoginResult result = new LoginResult("new-access-token", "new-refresh-token", Duration.ofMillis(2_592_000_000L), userInfo);
+        given(authService.refresh("old-refresh-token")).willReturn(result);
+
+        // when / then
+        mockMvc.perform(post("/api/auth/refresh")
+                        .cookie(new Cookie("refreshToken", "old-refresh-token")))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.success").value(true))
+                .andExpect(jsonPath("$.data.accessToken").value("new-access-token"))
+                .andExpect(jsonPath("$.data.userInfo.email").value("test@test.com"))
+                .andExpect(cookie().value("refreshToken", "new-refresh-token"))
+                .andExpect(cookie().httpOnly("refreshToken", true));
+    }
+
+    @Test
+    void refresh_쿠키없음_400반환() throws Exception {
+        mockMvc.perform(post("/api/auth/refresh"))
+                .andExpect(status().isBadRequest());
+    }
+
+    @Test
+    void refresh_유효하지않은토큰_401반환() throws Exception {
+        // given
+        given(authService.refresh("invalid-token"))
+                .willThrow(new AuthException(AuthErrorCode.INVALID_REFRESH_TOKEN));
+
+        // when / then
+        mockMvc.perform(post("/api/auth/refresh")
+                        .cookie(new Cookie("refreshToken", "invalid-token")))
+                .andExpect(status().isUnauthorized())
+                .andExpect(jsonPath("$.success").value(false))
+                .andExpect(jsonPath("$.code").value("A007"));
     }
 }
