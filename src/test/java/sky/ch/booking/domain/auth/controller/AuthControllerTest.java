@@ -17,6 +17,8 @@ import sky.ch.booking.domain.auth.entity.Department;
 import sky.ch.booking.domain.auth.exception.AuthErrorCode;
 import sky.ch.booking.domain.auth.exception.AuthException;
 import sky.ch.booking.domain.auth.service.AuthService;
+import sky.ch.booking.security.handler.CustomAccessDeniedHandler;
+import sky.ch.booking.security.handler.CustomAuthenticationEntryPoint;
 import sky.ch.booking.security.jwt.JwtProvider;
 import tools.jackson.databind.ObjectMapper;
 
@@ -30,7 +32,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 @WebMvcTest(AuthController.class)
-@Import(SecurityConfig.class)
+@Import({SecurityConfig.class, CustomAuthenticationEntryPoint.class, CustomAccessDeniedHandler.class})
 @ActiveProfiles("test")
 class AuthControllerTest {
 
@@ -191,5 +193,31 @@ class AuthControllerTest {
                         .content(objectMapper.writeValueAsString(request)))
                 .andExpect(status().isBadRequest())
                 .andExpect(jsonPath("$.success").value(false));
+    }
+
+    // ==================== logout ====================
+
+    @Test
+    void logout_성공_204반환및쿠키만료() throws Exception {
+        // given
+        given(jwtProvider.validateToken("valid-token")).willReturn(true);
+        given(jwtProvider.getUserId("valid-token")).willReturn("1");
+        given(jwtProvider.getRole("valid-token")).willReturn("USER");
+        doNothing().when(authService).logout(1L);
+
+        // when / then
+        mockMvc.perform(post("/api/auth/logout")
+                        .header("Authorization", "Bearer valid-token"))
+                .andExpect(status().isNoContent())
+                .andExpect(cookie().httpOnly("refreshToken", true))
+                .andExpect(cookie().maxAge("refreshToken", 0));
+    }
+
+    @Test
+    void logout_인증없음_401반환() throws Exception {
+        mockMvc.perform(post("/api/auth/logout"))
+                .andExpect(status().isUnauthorized())
+                .andExpect(jsonPath("$.success").value(false))
+                .andExpect(jsonPath("$.code").value("A002"));
     }
 }

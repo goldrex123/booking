@@ -145,4 +145,32 @@ class AuthServiceTest {
                 .extracting(e -> ((AuthException) e).getErrorCode())
                 .isEqualTo(AuthErrorCode.INVALID_CREDENTIALS);
     }
+
+    // ==================== logout ====================
+
+    @Test
+    void logout_성공_refreshToken무효화() {
+        // given
+        User user = User.create("test@test.com", "encodedPw", "홍길동", Department.YOUTH, Role.USER);
+        user.updateRefreshToken("existing-refresh-token");
+        given(userRepository.findById(1L)).willReturn(Optional.of(user));
+
+        // when
+        authService.logout(1L);
+
+        // then
+        assertThat(user.getRefreshToken()).isNull();
+    }
+
+    @Test
+    void logout_존재하지않는유저_예외발생() {
+        // given
+        given(userRepository.findById(999L)).willReturn(Optional.empty());
+
+        // when / then
+        assertThatThrownBy(() -> authService.logout(999L))
+                .isInstanceOf(AuthException.class)
+                .extracting(e -> ((AuthException) e).getErrorCode())
+                .isEqualTo(AuthErrorCode.USER_NOT_FOUND);
+    }
 }
