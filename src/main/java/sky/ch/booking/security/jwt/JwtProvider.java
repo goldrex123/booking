@@ -10,6 +10,7 @@ import org.springframework.stereotype.Component;
 
 import javax.crypto.SecretKey;
 import java.nio.charset.StandardCharsets;
+import java.time.Duration;
 import java.util.Date;
 
 @Slf4j
@@ -97,8 +98,8 @@ public class JwtProvider {
         return parseClaims(token).get("role", String.class);
     }
 
-    public long getRefreshTokenExpiry() {
-        return refreshTokenExpiry;
+    public Duration getRefreshTokenExpiry() {
+        return Duration.ofMillis(refreshTokenExpiry);
     }
 }
 

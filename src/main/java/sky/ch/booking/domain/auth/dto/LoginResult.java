@@ -1,9 +1,11 @@
 package sky.ch.booking.domain.auth.dto;
 
+import java.time.Duration;
+
 public record LoginResult(
         String accessToken,
         String refreshToken,
-        long refreshTokenExpiry,
+        Duration refreshTokenExpiry,
         UserInfo userInfo
 ) {
 }

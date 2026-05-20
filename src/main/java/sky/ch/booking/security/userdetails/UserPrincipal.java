@@ -2,13 +2,10 @@ package sky.ch.booking.security.userdetails;
 
 public record UserPrincipal(
         String userId,
-        String role,
-        String password
+        String role
 ) {
 
     public static UserPrincipal from(String userId, String role) {
-        return new UserPrincipal(
-                userId, role, null
-        );
+        return new UserPrincipal(userId, role);
     }
 }

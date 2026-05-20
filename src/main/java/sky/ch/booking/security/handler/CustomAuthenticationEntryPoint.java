@@ -15,8 +15,8 @@ import java.io.IOException;
 
 /**
  * 인증되지 않은 요청(401)에 대한 JSON 응답 핸들러
- * - 토큰 없음: A008 (ACCESS_TOKEN_REQUIRED)
- * - 유효하지 않은 토큰: A007 (INVALID_ACCESS_TOKEN)
+ * - 토큰 없음: A002 (ACCESS_TOKEN_REQUIRED)
+ * - 유효하지 않은 토큰: A001 (INVALID_ACCESS_TOKEN)
  */
 @Component
 @RequiredArgsConstructor
