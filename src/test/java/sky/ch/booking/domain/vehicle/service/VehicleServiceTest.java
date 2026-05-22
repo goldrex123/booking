@@ -5,14 +5,18 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import sky.ch.booking.domain.vehicle.dto.CreateVehicleRequest;
 import sky.ch.booking.domain.vehicle.dto.VehicleResponse;
 import sky.ch.booking.domain.vehicle.entity.Vehicle;
 import sky.ch.booking.domain.vehicle.entity.VehicleStatus;
+import sky.ch.booking.domain.vehicle.exception.VehicleException;
 import sky.ch.booking.domain.vehicle.repository.VehicleRepository;
 
 import java.util.List;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.BDDMockito.given;
 import static org.mockito.BDDMockito.then;
 
@@ -59,5 +63,38 @@ class VehicleServiceTest {
         // then
         assertThat(result).isEmpty();
         then(vehicleRepository).should().findAll();
+    }
+
+    // ==================== postVehicle ====================
+
+    @Test
+    void postVehicle_정상요청_VehicleResponse반환() {
+        // given
+        CreateVehicleRequest request = new CreateVehicleRequest("소나타", "12가3456", 5, "메모");
+        given(vehicleRepository.existsByLicensePlate("12가3456")).willReturn(false);
+        given(vehicleRepository.save(any(Vehicle.class))).willAnswer(inv -> inv.getArgument(0));
+
+        // when
+        VehicleResponse result = vehicleService.postVehicle(request);
+
+        // then
+        assertThat(result.model()).isEqualTo("소나타");
+        assertThat(result.licensePlate()).isEqualTo("12가3456");
+        assertThat(result.seats()).isEqualTo(5);
+        assertThat(result.status()).isEqualTo(VehicleStatus.ACTIVE);
+        assertThat(result.note()).isEqualTo("메모");
+        then(vehicleRepository).should().save(any(Vehicle.class));
+    }
+
+    @Test
+    void postVehicle_번호판중복_VehicleException발생() {
+        // given
+        CreateVehicleRequest request = new CreateVehicleRequest("소나타", "12가3456", 5, null);
+        given(vehicleRepository.existsByLicensePlate("12가3456")).willReturn(true);
+
+        // when / then
+        assertThatThrownBy(() -> vehicleService.postVehicle(request))
+                .isInstanceOf(VehicleException.class);
+        then(vehicleRepository).shouldHaveNoMoreInteractions();
     }
 }
