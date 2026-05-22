@@ -9,7 +9,7 @@ import sky.ch.booking.common.exception.BaseCode;
 @Getter
 public enum VehicleErrorCode implements BaseCode {
 
-
+    DUPLICATE_LICENSE_PLATE_VEHICLE(HttpStatus.CONFLICT, "V001", "이미 등록된 번호판 차량이 있습니다")
     ;
 
     private final HttpStatus httpStatus;

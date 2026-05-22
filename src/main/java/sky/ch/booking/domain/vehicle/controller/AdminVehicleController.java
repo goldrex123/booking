@@ -4,13 +4,14 @@ import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.security.SecurityRequirement;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import lombok.RequiredArgsConstructor;
+import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
-import org.springframework.web.bind.annotation.GetMapping;
-import org.springframework.web.bind.annotation.RequestMapping;
-import org.springframework.web.bind.annotation.RestController;
+import jakarta.validation.Valid;
+import org.springframework.web.bind.annotation.*;
 import sky.ch.booking.common.ApiResponse;
 import sky.ch.booking.common.exception.CommonCode;
+import sky.ch.booking.domain.vehicle.dto.CreateVehicleRequest;
 import sky.ch.booking.domain.vehicle.dto.VehicleResponse;
 import sky.ch.booking.domain.vehicle.service.VehicleService;
 
@@ -38,5 +39,27 @@ public class AdminVehicleController {
     @PreAuthorize("hasRole('ADMIN')")
     public ResponseEntity<ApiResponse<List<VehicleResponse>>> getAllVehicles() {
         return ResponseEntity.ok(ApiResponse.ok(CommonCode.SUCCESS, vehicleService.getAllVehicles()));
+    }
+
+
+    @Operation(
+            summary = "차량 등록",
+            description = "새 차량을 등록합니다. 번호판 중복 시 409를 반환합니다.",
+            security = @SecurityRequirement(name = "JWT"),
+            responses = {
+                    @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "201", description = "등록 성공"),
+                    @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "400", description = "잘못된 요청"),
+                    @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "401", description = "인증 필요"),
+                    @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "403", description = "권한 없음 (ADMIN 전용)"),
+                    @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "409", description = "번호판 중복")
+            }
+    )
+    @PostMapping
+    @PreAuthorize("hasRole('ADMIN')")
+    public ResponseEntity<ApiResponse<VehicleResponse>> postVehicle(
+            @Valid @RequestBody CreateVehicleRequest request
+    ) {
+        return ResponseEntity.status(HttpStatus.CREATED)
+                .body(ApiResponse.ok(CommonCode.SUCCESS, vehicleService.postVehicle(request)));
     }
 }
