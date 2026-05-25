@@ -7,6 +7,7 @@ import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import sky.ch.booking.domain.vehicle.dto.CreateVehicleRequest;
 import sky.ch.booking.domain.vehicle.dto.UpdateVehicleRequest;
+import sky.ch.booking.domain.vehicle.dto.UpdateVehicleStatusRequest;
 import sky.ch.booking.domain.vehicle.dto.VehicleResponse;
 import sky.ch.booking.domain.vehicle.entity.Vehicle;
 import sky.ch.booking.domain.vehicle.entity.VehicleStatus;
@@ -130,6 +131,53 @@ class VehicleServiceTest {
 
         // when / then
         assertThatThrownBy(() -> vehicleService.putVehicle(id, request))
+                .isInstanceOf(VehicleException.class);
+    }
+
+    // ==================== patchVehicleStatus ====================
+
+    @Test
+    void patchVehicleStatus_INACTIVE변경_VehicleResponse반환() {
+        // given
+        Long id = 1L;
+        UpdateVehicleStatusRequest request = new UpdateVehicleStatusRequest(VehicleStatus.INACTIVE);
+        Vehicle vehicle = Vehicle.create("소나타", "12가3456", 5, null);
+        given(vehicleRepository.findById(id)).willReturn(Optional.of(vehicle));
+
+        // when
+        VehicleResponse result = vehicleService.patchVehicleStatus(id, request);
+
+        // then
+        assertThat(result.status()).isEqualTo(VehicleStatus.INACTIVE);
+        assertThat(result.model()).isEqualTo("소나타");
+        assertThat(result.licensePlate()).isEqualTo("12가3456");
+    }
+
+    @Test
+    void patchVehicleStatus_ACTIVE복원_VehicleResponse반환() {
+        // given
+        Long id = 1L;
+        UpdateVehicleStatusRequest request = new UpdateVehicleStatusRequest(VehicleStatus.ACTIVE);
+        Vehicle vehicle = Vehicle.create("소나타", "12가3456", 5, null);
+        vehicle.changeStatus(VehicleStatus.INACTIVE);
+        given(vehicleRepository.findById(id)).willReturn(Optional.of(vehicle));
+
+        // when
+        VehicleResponse result = vehicleService.patchVehicleStatus(id, request);
+
+        // then
+        assertThat(result.status()).isEqualTo(VehicleStatus.ACTIVE);
+    }
+
+    @Test
+    void patchVehicleStatus_존재하지않는차량_VehicleException발생() {
+        // given
+        Long id = 999L;
+        UpdateVehicleStatusRequest request = new UpdateVehicleStatusRequest(VehicleStatus.INACTIVE);
+        given(vehicleRepository.findById(id)).willReturn(Optional.empty());
+
+        // when / then
+        assertThatThrownBy(() -> vehicleService.patchVehicleStatus(id, request))
                 .isInstanceOf(VehicleException.class);
     }
 }
