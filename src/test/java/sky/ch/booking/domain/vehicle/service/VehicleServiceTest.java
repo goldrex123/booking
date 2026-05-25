@@ -6,6 +6,7 @@ import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import sky.ch.booking.domain.vehicle.dto.CreateVehicleRequest;
+import sky.ch.booking.domain.vehicle.dto.UpdateVehicleRequest;
 import sky.ch.booking.domain.vehicle.dto.VehicleResponse;
 import sky.ch.booking.domain.vehicle.entity.Vehicle;
 import sky.ch.booking.domain.vehicle.entity.VehicleStatus;
@@ -13,6 +14,7 @@ import sky.ch.booking.domain.vehicle.exception.VehicleException;
 import sky.ch.booking.domain.vehicle.repository.VehicleRepository;
 
 import java.util.List;
+import java.util.Optional;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
@@ -96,5 +98,38 @@ class VehicleServiceTest {
         assertThatThrownBy(() -> vehicleService.postVehicle(request))
                 .isInstanceOf(VehicleException.class);
         then(vehicleRepository).shouldHaveNoMoreInteractions();
+    }
+
+    // ==================== putVehicle ====================
+
+    @Test
+    void putVehicle_정상요청_VehicleResponse반환() {
+        // given
+        Long id = 1L;
+        UpdateVehicleRequest request = new UpdateVehicleRequest("그랜저", 7, "VIP용");
+        Vehicle vehicle = Vehicle.create("소나타", "12가3456", 5, null);
+        given(vehicleRepository.findById(id)).willReturn(Optional.of(vehicle));
+
+        // when
+        VehicleResponse result = vehicleService.putVehicle(id, request);
+
+        // then
+        assertThat(result.model()).isEqualTo("그랜저");
+        assertThat(result.licensePlate()).isEqualTo("12가3456");
+        assertThat(result.seats()).isEqualTo(7);
+        assertThat(result.note()).isEqualTo("VIP용");
+        assertThat(result.status()).isEqualTo(VehicleStatus.ACTIVE);
+    }
+
+    @Test
+    void putVehicle_존재하지않는차량_VehicleException발생() {
+        // given
+        Long id = 999L;
+        UpdateVehicleRequest request = new UpdateVehicleRequest("그랜저", 7, null);
+        given(vehicleRepository.findById(id)).willReturn(Optional.empty());
+
+        // when / then
+        assertThatThrownBy(() -> vehicleService.putVehicle(id, request))
+                .isInstanceOf(VehicleException.class);
     }
 }

@@ -11,6 +11,7 @@ import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
 import sky.ch.booking.config.SecurityConfig;
 import sky.ch.booking.domain.vehicle.dto.CreateVehicleRequest;
+import sky.ch.booking.domain.vehicle.dto.UpdateVehicleRequest;
 import sky.ch.booking.domain.vehicle.dto.VehicleResponse;
 import sky.ch.booking.domain.vehicle.entity.VehicleStatus;
 import sky.ch.booking.domain.vehicle.exception.VehicleErrorCode;
@@ -23,10 +24,12 @@ import sky.ch.booking.security.jwt.JwtProvider;
 import java.util.List;
 
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.BDDMockito.given;
 import static org.mockito.BDDMockito.willThrow;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
@@ -211,6 +214,112 @@ class AdminVehicleControllerTest {
         CreateVehicleRequest request = new CreateVehicleRequest("소나타", "12가3456", 5, null);
 
         mockMvc.perform(post("/api/admin/vehicles")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(request)))
+                .andExpect(status().isUnauthorized())
+                .andExpect(jsonPath("$.success").value(false));
+    }
+
+    // ==================== PUT /api/admin/vehicles/{id} ====================
+
+    @Test
+    void putVehicle_ADMIN인증_200반환() throws Exception {
+        // given
+        UpdateVehicleRequest request = new UpdateVehicleRequest("그랜저", 7, "VIP용");
+        VehicleResponse response = new VehicleResponse(1L, "그랜저", "12가3456", 7, VehicleStatus.ACTIVE, "VIP용");
+        given(jwtProvider.validateToken("admin-token")).willReturn(true);
+        given(jwtProvider.getUserId("admin-token")).willReturn("1");
+        given(jwtProvider.getRole("admin-token")).willReturn("ADMIN");
+        given(vehicleService.putVehicle(eq(1L), any(UpdateVehicleRequest.class))).willReturn(response);
+
+        // when / then
+        mockMvc.perform(put("/api/admin/vehicles/1")
+                        .header("Authorization", "Bearer admin-token")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(request)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.success").value(true))
+                .andExpect(jsonPath("$.data.id").value(1))
+                .andExpect(jsonPath("$.data.model").value("그랜저"))
+                .andExpect(jsonPath("$.data.seats").value(7))
+                .andExpect(jsonPath("$.data.note").value("VIP용"));
+    }
+
+    @Test
+    void putVehicle_존재하지않는차량_404반환() throws Exception {
+        // given
+        UpdateVehicleRequest request = new UpdateVehicleRequest("그랜저", 7, null);
+        given(jwtProvider.validateToken("admin-token")).willReturn(true);
+        given(jwtProvider.getUserId("admin-token")).willReturn("1");
+        given(jwtProvider.getRole("admin-token")).willReturn("ADMIN");
+        willThrow(new VehicleException(VehicleErrorCode.NOT_FOUND_VEHICLE))
+                .given(vehicleService).putVehicle(eq(999L), any(UpdateVehicleRequest.class));
+
+        // when / then
+        mockMvc.perform(put("/api/admin/vehicles/999")
+                        .header("Authorization", "Bearer admin-token")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(request)))
+                .andExpect(status().isNotFound())
+                .andExpect(jsonPath("$.success").value(false));
+    }
+
+    @Test
+    void putVehicle_필수값누락_400반환() throws Exception {
+        // given — model 누락
+        String body = "{\"seats\":5}";
+        given(jwtProvider.validateToken("admin-token")).willReturn(true);
+        given(jwtProvider.getUserId("admin-token")).willReturn("1");
+        given(jwtProvider.getRole("admin-token")).willReturn("ADMIN");
+
+        // when / then
+        mockMvc.perform(put("/api/admin/vehicles/1")
+                        .header("Authorization", "Bearer admin-token")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(body))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.success").value(false));
+    }
+
+    @Test
+    void putVehicle_좌석수0이하_400반환() throws Exception {
+        // given — seats = 0 (Min(1) 위반)
+        UpdateVehicleRequest request = new UpdateVehicleRequest("그랜저", 0, null);
+        given(jwtProvider.validateToken("admin-token")).willReturn(true);
+        given(jwtProvider.getUserId("admin-token")).willReturn("1");
+        given(jwtProvider.getRole("admin-token")).willReturn("ADMIN");
+
+        // when / then
+        mockMvc.perform(put("/api/admin/vehicles/1")
+                        .header("Authorization", "Bearer admin-token")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(request)))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.success").value(false));
+    }
+
+    @Test
+    void putVehicle_USER권한_403반환() throws Exception {
+        // given
+        UpdateVehicleRequest request = new UpdateVehicleRequest("그랜저", 7, null);
+        given(jwtProvider.validateToken("user-token")).willReturn(true);
+        given(jwtProvider.getUserId("user-token")).willReturn("2");
+        given(jwtProvider.getRole("user-token")).willReturn("USER");
+
+        // when / then
+        mockMvc.perform(put("/api/admin/vehicles/1")
+                        .header("Authorization", "Bearer user-token")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(request)))
+                .andExpect(status().isForbidden())
+                .andExpect(jsonPath("$.success").value(false));
+    }
+
+    @Test
+    void putVehicle_인증없음_401반환() throws Exception {
+        UpdateVehicleRequest request = new UpdateVehicleRequest("그랜저", 7, null);
+
+        mockMvc.perform(put("/api/admin/vehicles/1")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(request)))
                 .andExpect(status().isUnauthorized())
