@@ -12,6 +12,7 @@ import org.springframework.web.bind.annotation.*;
 import sky.ch.booking.common.ApiResponse;
 import sky.ch.booking.common.exception.CommonCode;
 import sky.ch.booking.domain.vehicle.dto.CreateVehicleRequest;
+import sky.ch.booking.domain.vehicle.dto.UpdateVehicleRequest;
 import sky.ch.booking.domain.vehicle.dto.VehicleResponse;
 import sky.ch.booking.domain.vehicle.service.VehicleService;
 
@@ -61,5 +62,26 @@ public class AdminVehicleController {
     ) {
         return ResponseEntity.status(HttpStatus.CREATED)
                 .body(ApiResponse.ok(CommonCode.SUCCESS, vehicleService.postVehicle(request)));
+    }
+
+    @Operation(
+            summary = "차량 정보 수정",
+            description = "차량의 모델명·좌석수·메모를 수정합니다. 번호판은 변경할 수 없습니다.",
+            security = @SecurityRequirement(name = "JWT"),
+            responses = {
+                    @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "200", description = "수정 성공"),
+                    @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "400", description = "잘못된 요청"),
+                    @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "401", description = "인증 필요"),
+                    @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "403", description = "권한 없음 (ADMIN 전용)"),
+                    @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "404", description = "차량 없음")
+            }
+    )
+    @PutMapping("/{id}")
+    @PreAuthorize("hasRole('ADMIN')")
+    public ResponseEntity<ApiResponse<VehicleResponse>> putVehicle(
+            @PathVariable Long id,
+            @Valid @RequestBody UpdateVehicleRequest request
+    ) {
+        return ResponseEntity.ok(ApiResponse.ok(CommonCode.SUCCESS, vehicleService.putVehicle(id, request)));
     }
 }

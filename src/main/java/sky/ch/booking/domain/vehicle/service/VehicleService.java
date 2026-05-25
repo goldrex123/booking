@@ -4,6 +4,7 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import sky.ch.booking.domain.vehicle.dto.CreateVehicleRequest;
+import sky.ch.booking.domain.vehicle.dto.UpdateVehicleRequest;
 import sky.ch.booking.domain.vehicle.dto.VehicleResponse;
 
 import sky.ch.booking.domain.vehicle.entity.Vehicle;
@@ -29,9 +30,7 @@ public class VehicleService {
 
     @Transactional
     public VehicleResponse postVehicle(CreateVehicleRequest request) {
-        if (vehicleRepository.existsByLicensePlate(request.licensePlate())) {
-            throw new VehicleException(VehicleErrorCode.DUPLICATE_LICENSE_PLATE_VEHICLE);
-        }
+        checkLicensePlate(request.licensePlate());
 
         Vehicle vehicle = Vehicle.create(
                 request.model(),
@@ -42,5 +41,24 @@ public class VehicleService {
         vehicleRepository.save(vehicle);
 
         return VehicleResponse.from(vehicle);
+    }
+
+    @Transactional
+    public VehicleResponse putVehicle(Long id, UpdateVehicleRequest request) {
+        Vehicle vehicle = findVehicle(id);
+        vehicle.update(request.model(), request.seats(), request.note());
+
+        return VehicleResponse.from(vehicle);
+    }
+
+    private Vehicle findVehicle(Long id) {
+        return vehicleRepository.findById(id)
+                .orElseThrow(() -> new VehicleException(VehicleErrorCode.NOT_FOUND_VEHICLE));
+    }
+
+    private void checkLicensePlate(String licensePlate) {
+        if (vehicleRepository.existsByLicensePlate(licensePlate)) {
+            throw new VehicleException(VehicleErrorCode.DUPLICATE_LICENSE_PLATE_VEHICLE);
+        }
     }
 }
