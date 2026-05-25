@@ -5,6 +5,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import sky.ch.booking.domain.vehicle.dto.CreateVehicleRequest;
 import sky.ch.booking.domain.vehicle.dto.UpdateVehicleRequest;
+import sky.ch.booking.domain.vehicle.dto.UpdateVehicleStatusRequest;
 import sky.ch.booking.domain.vehicle.dto.VehicleResponse;
 
 import sky.ch.booking.domain.vehicle.entity.Vehicle;
@@ -47,6 +48,14 @@ public class VehicleService {
     public VehicleResponse putVehicle(Long id, UpdateVehicleRequest request) {
         Vehicle vehicle = findVehicle(id);
         vehicle.update(request.model(), request.seats(), request.note());
+
+        return VehicleResponse.from(vehicle);
+    }
+
+    @Transactional
+    public VehicleResponse patchVehicleStatus(Long id, UpdateVehicleStatusRequest request) {
+        Vehicle vehicle = findVehicle(id);
+        vehicle.changeStatus(request.status());
 
         return VehicleResponse.from(vehicle);
     }

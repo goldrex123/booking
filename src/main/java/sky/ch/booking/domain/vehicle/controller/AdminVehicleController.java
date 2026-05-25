@@ -13,6 +13,7 @@ import sky.ch.booking.common.ApiResponse;
 import sky.ch.booking.common.exception.CommonCode;
 import sky.ch.booking.domain.vehicle.dto.CreateVehicleRequest;
 import sky.ch.booking.domain.vehicle.dto.UpdateVehicleRequest;
+import sky.ch.booking.domain.vehicle.dto.UpdateVehicleStatusRequest;
 import sky.ch.booking.domain.vehicle.dto.VehicleResponse;
 import sky.ch.booking.domain.vehicle.service.VehicleService;
 
@@ -83,5 +84,26 @@ public class AdminVehicleController {
             @Valid @RequestBody UpdateVehicleRequest request
     ) {
         return ResponseEntity.ok(ApiResponse.ok(CommonCode.SUCCESS, vehicleService.putVehicle(id, request)));
+    }
+
+    @Operation(
+            summary = "차량 상태 변경",
+            description = "차량을 활성(ACTIVE) 또는 비활성(INACTIVE) 상태로 변경합니다.",
+            security = @SecurityRequirement(name = "JWT"),
+            responses = {
+                    @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "200", description = "상태 변경 성공"),
+                    @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "400", description = "잘못된 요청"),
+                    @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "401", description = "인증 필요"),
+                    @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "403", description = "권한 없음 (ADMIN 전용)"),
+                    @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "404", description = "차량 없음")
+            }
+    )
+    @PatchMapping("/{id}/status")
+    @PreAuthorize("hasRole('ADMIN')")
+    public ResponseEntity<ApiResponse<VehicleResponse>> patchVehicleStatus(
+            @PathVariable Long id,
+            @Valid @RequestBody UpdateVehicleStatusRequest request
+    ) {
+        return ResponseEntity.ok(ApiResponse.ok(CommonCode.SUCCESS, vehicleService.patchVehicleStatus(id, request)));
     }
 }
