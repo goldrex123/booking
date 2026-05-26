@@ -1,6 +1,9 @@
 package sky.ch.booking.domain.reservation.controller;
 
 import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.Parameter;
+import io.swagger.v3.oas.annotations.media.Content;
+import io.swagger.v3.oas.annotations.media.Schema;
 import io.swagger.v3.oas.annotations.security.SecurityRequirement;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
@@ -21,7 +24,7 @@ import sky.ch.booking.security.userdetails.CustomUserDetails;
 import java.time.LocalDateTime;
 import java.util.List;
 
-@Tag(name = "Reservation", description = "예약 API")
+@Tag(name = "Reservation", description = "예약 API — 차량·부속실 예약 생성 및 조회")
 @RestController
 @RequiredArgsConstructor
 @RequestMapping("/api/reservations")
@@ -30,18 +33,32 @@ public class ReservationController {
     private final ReservationService reservationService;
 
     @Operation(
-            summary = "전체 예약 조회",
-            description = "캘린더용 예약 목록을 조회합니다. startDate~endDate 범위와 겹치는 예약을 반환합니다.",
+            summary = "전체 예약 조회 (캘린더용)",
+            description = """
+                    startDate ~ endDate 범위와 **겹치는** 모든 예약을 조회합니다.
+
+                    - 겹침 조건: `예약.startAt < endDate AND 예약.endAt > startDate`
+                    - `resourceType` 미전달 시 차량·부속실 전체 조회
+                    - 결과는 `startAt` 오름차순 정렬
+                    """,
             security = @SecurityRequirement(name = "JWT"),
             responses = {
                     @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "200", description = "조회 성공"),
-                    @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "401", description = "인증 필요")
+                    @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "400", description = "startDate가 endDate 이후인 경우",
+                            content = @Content(schema = @Schema(example = "{\"success\":false,\"data\":null,\"message\":\"시작일은 종료일보다 이전이어야 합니다\"}"))),
+                    @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "401", description = "인증 필요",
+                            content = @Content(schema = @Schema(example = "{\"success\":false,\"data\":null,\"message\":\"인증이 필요합니다\"}")))
             }
     )
     @GetMapping
     public ResponseEntity<ApiResponse<List<ReservationResponse>>> getReservations(
+            @Parameter(description = "자원 유형 필터 (생략 시 전체 조회)", example = "VEHICLE")
             @RequestParam(required = false) ResourceType resourceType,
+
+            @Parameter(description = "조회 시작일시 (ISO 8601)", required = true, example = "2025-06-01T00:00:00")
             @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) LocalDateTime startDate,
+
+            @Parameter(description = "조회 종료일시 (ISO 8601, startDate보다 이후)", required = true, example = "2025-06-30T23:59:59")
             @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) LocalDateTime endDate
     ) {
         return ResponseEntity.ok(
@@ -49,13 +66,34 @@ public class ReservationController {
         );
     }
 
+    @Operation(
+            summary = "예약 생성",
+            description = """
+                    차량 또는 부속실 예약을 생성합니다.
+
+                    - 동일 자원·동일 시간에 `CONFIRMED` 상태 예약이 있으면 `409` 반환
+                    - `destination`은 차량 예약 전용 (부속실 예약 시 null)
+                    - 동시 예약 처리: 낙관적 락(`@Version`) 적용
+                    """,
+            security = @SecurityRequirement(name = "JWT"),
+            responses = {
+                    @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "201", description = "예약 생성 성공"),
+                    @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "400", description = "입력값 오류 또는 시작일이 종료일 이후",
+                            content = @Content(schema = @Schema(example = "{\"success\":false,\"data\":null,\"message\":\"입력값이 올바르지 않습니다\"}"))),
+                    @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "401", description = "인증 필요",
+                            content = @Content(schema = @Schema(example = "{\"success\":false,\"data\":null,\"message\":\"인증이 필요합니다\"}"))),
+                    @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "404", description = "자원(차량·부속실) 또는 사용자 없음",
+                            content = @Content(schema = @Schema(example = "{\"success\":false,\"data\":null,\"message\":\"등록된 차량 정보가 없습니다\"}"))),
+                    @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "409", description = "시간 충돌 — 해당 시간에 이미 예약 존재",
+                            content = @Content(schema = @Schema(example = "{\"success\":false,\"data\":null,\"message\":\"해당 시간에 이미 예약이 존재합니다\"}")))
+            }
+    )
     @PostMapping
     public ResponseEntity<ApiResponse<ReservationResponse>> postReservation(
-            @AuthenticationPrincipal CustomUserDetails customUserDetails,
+            @Parameter(hidden = true) @AuthenticationPrincipal CustomUserDetails customUserDetails,
             @Valid @RequestBody CreateReservationRequest request
     ) {
         Long userId = Long.parseLong(customUserDetails.getUsername());
-
         return ResponseEntity.status(HttpStatus.CREATED)
                 .body(ApiResponse.ok(CommonCode.SUCCESS, reservationService.postReservation(request, userId)));
     }
