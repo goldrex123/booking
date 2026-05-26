@@ -43,6 +43,8 @@ public class Reservation extends BaseTimeEntity {
     @Column(nullable = false)
     private ReservationStatus status;
 
+    @Version
+    private Long version;
 
     @Builder(access = AccessLevel.PRIVATE)
     private Reservation(ResourceType resourceType, Long resourceId, Long userId, LocalDateTime startAt, LocalDateTime endAt, String purpose, String destination, ReservationStatus status) {

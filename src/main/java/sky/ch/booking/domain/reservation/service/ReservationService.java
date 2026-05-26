@@ -4,16 +4,24 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import sky.ch.booking.domain.auth.entity.User;
+import sky.ch.booking.domain.auth.exception.AuthErrorCode;
+import sky.ch.booking.domain.auth.exception.AuthException;
 import sky.ch.booking.domain.auth.repository.UserRepository;
+import sky.ch.booking.domain.reservation.dto.CreateReservationRequest;
 import sky.ch.booking.domain.reservation.dto.ReservationResponse;
 import sky.ch.booking.domain.reservation.entity.Reservation;
+import sky.ch.booking.domain.reservation.entity.ReservationStatus;
 import sky.ch.booking.domain.reservation.entity.ResourceType;
 import sky.ch.booking.domain.reservation.exception.ReservationErrorCode;
 import sky.ch.booking.domain.reservation.exception.ReservationException;
 import sky.ch.booking.domain.reservation.repository.ReservationRepository;
 import sky.ch.booking.domain.room.entity.Room;
+import sky.ch.booking.domain.room.exception.RoomErrorCode;
+import sky.ch.booking.domain.room.exception.RoomException;
 import sky.ch.booking.domain.room.repository.RoomRepository;
 import sky.ch.booking.domain.vehicle.entity.Vehicle;
+import sky.ch.booking.domain.vehicle.exception.VehicleErrorCode;
+import sky.ch.booking.domain.vehicle.exception.VehicleException;
 import sky.ch.booking.domain.vehicle.repository.VehicleRepository;
 
 import java.time.LocalDateTime;
@@ -62,6 +70,51 @@ public class ReservationService {
                     return ReservationResponse.from(r, resourceName, user);
                 })
                 .toList();
+    }
+
+    @Transactional
+    public ReservationResponse postReservation(CreateReservationRequest request, Long userId) {
+        if (!request.startAt().isBefore(request.endAt())) {
+            throw new ReservationException(ReservationErrorCode.INVALID_DATE_RANGE);
+        }
+
+        if(reservationRepository.existsByStartAtBeforeAndEndAtAfterAndResourceTypeAndResourceIdAndStatus(
+                request.endAt(),
+                request.startAt(),
+                request.resourceType(),
+                request.resourceId(),
+                ReservationStatus.CONFIRMED
+        )) {
+            throw new ReservationException(ReservationErrorCode.CONFLICT);
+        }
+
+        String resourceName;
+        if(request.resourceType() == ResourceType.ROOM) {
+            Room room = roomRepository.findById(request.resourceId())
+                    .orElseThrow(() -> new RoomException(RoomErrorCode.NOT_FOUND_ROOM));
+            resourceName = room.getName();
+        } else {
+            Vehicle vehicle = vehicleRepository.findById(request.resourceId())
+                    .orElseThrow(() -> new VehicleException(VehicleErrorCode.NOT_FOUND_VEHICLE));
+            resourceName = vehicle.getModel();
+        }
+
+        User user = userRepository.findById(userId)
+                .orElseThrow(() -> new AuthException(AuthErrorCode.USER_NOT_FOUND));
+
+        Reservation reservation = Reservation.create(
+                request.resourceType(),
+                request.resourceId(),
+                userId,
+                request.startAt(),
+                request.endAt(),
+                request.purpose(),
+                request.destination(),
+                ReservationStatus.CONFIRMED
+        );
+        reservationRepository.save(reservation);
+
+        return ReservationResponse.from(reservation, resourceName, user);
     }
 
     private Map<Long, User> loadUsers(List<Reservation> reservations) {

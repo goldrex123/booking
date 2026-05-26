@@ -3,18 +3,20 @@ package sky.ch.booking.domain.reservation.controller;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.security.SecurityRequirement;
 import io.swagger.v3.oas.annotations.tags.Tag;
+import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.format.annotation.DateTimeFormat;
+import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
-import org.springframework.web.bind.annotation.GetMapping;
-import org.springframework.web.bind.annotation.RequestMapping;
-import org.springframework.web.bind.annotation.RequestParam;
-import org.springframework.web.bind.annotation.RestController;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
+import org.springframework.web.bind.annotation.*;
 import sky.ch.booking.common.ApiResponse;
 import sky.ch.booking.common.exception.CommonCode;
+import sky.ch.booking.domain.reservation.dto.CreateReservationRequest;
 import sky.ch.booking.domain.reservation.dto.ReservationResponse;
 import sky.ch.booking.domain.reservation.entity.ResourceType;
 import sky.ch.booking.domain.reservation.service.ReservationService;
+import sky.ch.booking.security.userdetails.CustomUserDetails;
 
 import java.time.LocalDateTime;
 import java.util.List;
@@ -45,5 +47,16 @@ public class ReservationController {
         return ResponseEntity.ok(
                 ApiResponse.ok(CommonCode.SUCCESS, reservationService.getReservations(resourceType, startDate, endDate))
         );
+    }
+
+    @PostMapping
+    public ResponseEntity<ApiResponse<ReservationResponse>> postReservation(
+            @AuthenticationPrincipal CustomUserDetails customUserDetails,
+            @Valid @RequestBody CreateReservationRequest request
+    ) {
+        Long userId = Long.parseLong(customUserDetails.getUsername());
+
+        return ResponseEntity.status(HttpStatus.CREATED)
+                .body(ApiResponse.ok(CommonCode.SUCCESS, reservationService.postReservation(request, userId)));
     }
 }
