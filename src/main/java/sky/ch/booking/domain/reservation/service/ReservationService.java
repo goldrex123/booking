@@ -1,0 +1,104 @@
+package sky.ch.booking.domain.reservation.service;
+
+import lombok.RequiredArgsConstructor;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+import sky.ch.booking.domain.auth.entity.User;
+import sky.ch.booking.domain.auth.repository.UserRepository;
+import sky.ch.booking.domain.reservation.dto.ReservationResponse;
+import sky.ch.booking.domain.reservation.entity.Reservation;
+import sky.ch.booking.domain.reservation.entity.ResourceType;
+import sky.ch.booking.domain.reservation.exception.ReservationErrorCode;
+import sky.ch.booking.domain.reservation.exception.ReservationException;
+import sky.ch.booking.domain.reservation.repository.ReservationRepository;
+import sky.ch.booking.domain.room.entity.Room;
+import sky.ch.booking.domain.room.repository.RoomRepository;
+import sky.ch.booking.domain.vehicle.entity.Vehicle;
+import sky.ch.booking.domain.vehicle.repository.VehicleRepository;
+
+import java.time.LocalDateTime;
+import java.util.List;
+import java.util.Map;
+import java.util.Set;
+import java.util.function.Function;
+import java.util.stream.Collectors;
+
+@Service
+@Transactional(readOnly = true)
+@RequiredArgsConstructor
+public class ReservationService {
+
+    private final ReservationRepository reservationRepository;
+    private final UserRepository userRepository;
+    private final VehicleRepository vehicleRepository;
+    private final RoomRepository roomRepository;
+
+    public List<ReservationResponse> getReservations(ResourceType resourceType, LocalDateTime startDate, LocalDateTime endDate) {
+        if (!startDate.isBefore(endDate)) {
+            throw new ReservationException(ReservationErrorCode.INVALID_DATE_RANGE);
+        }
+
+        List<Reservation> reservations = resourceType == null
+                ? reservationRepository.findByStartAtBeforeAndEndAtAfterOrderByStartAtAsc(endDate, startDate)
+                : reservationRepository.findByStartAtBeforeAndEndAtAfterAndResourceTypeOrderByStartAtAsc(endDate, startDate, resourceType);
+
+        if (reservations.isEmpty()) {
+            return List.of();
+        }
+
+        Map<Long, User> userMap = loadUsers(reservations);
+        Map<Long, String> vehicleNames = loadVehicleNames(reservations);
+        Map<Long, String> roomNames = loadRoomNames(reservations);
+
+        return reservations.stream()
+                .map(r -> {
+                    User user = userMap.get(r.getUserId());
+                    String resourceName = r.getResourceType() == ResourceType.VEHICLE
+                            ? vehicleNames.getOrDefault(r.getResourceId(), "알 수 없음")
+                            : roomNames.getOrDefault(r.getResourceId(), "알 수 없음");
+                    if (user == null) {
+                        return ReservationResponse.fromDeleted(r, resourceName);
+                    }
+                    return ReservationResponse.from(r, resourceName, user);
+                })
+                .toList();
+    }
+
+    private Map<Long, User> loadUsers(List<Reservation> reservations) {
+        Set<Long> userIds = reservations.stream()
+                .map(Reservation::getUserId)
+                .collect(Collectors.toSet());
+        return userRepository.findAllById(userIds).stream()
+                .collect(Collectors.toMap(User::getId, Function.identity()));
+    }
+
+    private Map<Long, String> loadVehicleNames(List<Reservation> reservations) {
+        Set<Long> vehicleIds = reservations.stream()
+                .filter(r -> r.getResourceType() == ResourceType.VEHICLE)
+                .map(Reservation::getResourceId)
+                .collect(Collectors.toSet());
+        if (vehicleIds.isEmpty()) {
+            return Map.of();
+        }
+        return vehicleRepository.findAllById(vehicleIds).stream()
+                .collect(Collectors.toMap(
+                        Vehicle::getId,
+                        Vehicle::getModel
+                ));
+    }
+
+    private Map<Long, String> loadRoomNames(List<Reservation> reservations) {
+        Set<Long> roomIds = reservations.stream()
+                .filter(r -> r.getResourceType() == ResourceType.ROOM)
+                .map(Reservation::getResourceId)
+                .collect(Collectors.toSet());
+        if (roomIds.isEmpty()) {
+            return Map.of();
+        }
+        return roomRepository.findAllById(roomIds).stream()
+                .collect(Collectors.toMap(
+                        Room::getId,
+                        Room::getName
+                ));
+    }
+}

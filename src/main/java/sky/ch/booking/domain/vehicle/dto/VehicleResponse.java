@@ -10,6 +10,7 @@ public record VehicleResponse(
         Integer seats,
         VehicleStatus status,
         String note
+
 ) {
 
     public static VehicleResponse from(Vehicle vehicle) {
