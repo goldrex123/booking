@@ -18,9 +18,11 @@ import sky.ch.booking.domain.reservation.entity.ResourceType;
 import sky.ch.booking.domain.reservation.exception.ReservationException;
 import sky.ch.booking.domain.reservation.repository.ReservationRepository;
 import sky.ch.booking.domain.room.entity.Room;
+import sky.ch.booking.domain.room.entity.RoomStatus;
 import sky.ch.booking.domain.room.exception.RoomException;
 import sky.ch.booking.domain.room.repository.RoomRepository;
 import sky.ch.booking.domain.vehicle.entity.Vehicle;
+import sky.ch.booking.domain.vehicle.entity.VehicleStatus;
 import sky.ch.booking.domain.vehicle.exception.VehicleException;
 import sky.ch.booking.domain.vehicle.repository.VehicleRepository;
 
@@ -150,8 +152,8 @@ class ReservationServiceTest {
 
         // then
         assertThat(result).hasSize(1);
-        assertThat(result.get(0).userName()).isEqualTo("알 수 없음");
-        assertThat(result.get(0).userDepartment()).isEqualTo("알 수 없음");
+        assertThat(result.get(0).userName()).isNull();
+        assertThat(result.get(0).userDepartment()).isNull();
     }
 
     // ==================== postReservation ====================
@@ -166,11 +168,11 @@ class ReservationServiceTest {
         Vehicle vehicle = Vehicle.create("소나타", "123가4567", 5, null);
         ReflectionTestUtils.setField(user, "id", 1L);
 
+        given(userRepository.findById(1L)).willReturn(Optional.of(user));
+        given(vehicleRepository.findByIdForUpdate(1L)).willReturn(Optional.of(vehicle));
         given(reservationRepository.existsByStartAtBeforeAndEndAtAfterAndResourceTypeAndResourceIdAndStatus(
                 END, START, ResourceType.VEHICLE, 1L, ReservationStatus.CONFIRMED
         )).willReturn(false);
-        given(vehicleRepository.findById(1L)).willReturn(Optional.of(vehicle));
-        given(userRepository.findById(1L)).willReturn(Optional.of(user));
         given(reservationRepository.save(any(Reservation.class))).willAnswer(inv -> inv.getArgument(0));
 
         // when
@@ -195,11 +197,11 @@ class ReservationServiceTest {
         Room room = Room.create("회의실 A", "3층 301호", 8, null);
         ReflectionTestUtils.setField(user, "id", 2L);
 
+        given(userRepository.findById(2L)).willReturn(Optional.of(user));
+        given(roomRepository.findByIdForUpdate(2L)).willReturn(Optional.of(room));
         given(reservationRepository.existsByStartAtBeforeAndEndAtAfterAndResourceTypeAndResourceIdAndStatus(
                 END, START, ResourceType.ROOM, 2L, ReservationStatus.CONFIRMED
         )).willReturn(false);
-        given(roomRepository.findById(2L)).willReturn(Optional.of(room));
-        given(userRepository.findById(2L)).willReturn(Optional.of(user));
         given(reservationRepository.save(any(Reservation.class))).willAnswer(inv -> inv.getArgument(0));
 
         // when
@@ -217,6 +219,11 @@ class ReservationServiceTest {
         CreateReservationRequest request = new CreateReservationRequest(
                 ResourceType.VEHICLE, 1L, START, END, "출장", "서울"
         );
+        User user = User.create("test@test.com", "pass", "홍길동", Department.YOUTH, Role.USER);
+        Vehicle vehicle = Vehicle.create("소나타", "123가4567", 5, null);
+
+        given(userRepository.findById(1L)).willReturn(Optional.of(user));
+        given(vehicleRepository.findByIdForUpdate(1L)).willReturn(Optional.of(vehicle));
         given(reservationRepository.existsByStartAtBeforeAndEndAtAfterAndResourceTypeAndResourceIdAndStatus(
                 END, START, ResourceType.VEHICLE, 1L, ReservationStatus.CONFIRMED
         )).willReturn(true);
@@ -248,10 +255,10 @@ class ReservationServiceTest {
         CreateReservationRequest request = new CreateReservationRequest(
                 ResourceType.VEHICLE, 999L, START, END, "출장", "서울"
         );
-        given(reservationRepository.existsByStartAtBeforeAndEndAtAfterAndResourceTypeAndResourceIdAndStatus(
-                END, START, ResourceType.VEHICLE, 999L, ReservationStatus.CONFIRMED
-        )).willReturn(false);
-        given(vehicleRepository.findById(999L)).willReturn(Optional.empty());
+        User user = User.create("test@test.com", "pass", "홍길동", Department.YOUTH, Role.USER);
+
+        given(userRepository.findById(1L)).willReturn(Optional.of(user));
+        given(vehicleRepository.findByIdForUpdate(999L)).willReturn(Optional.empty());
 
         // when / then
         assertThatThrownBy(() -> reservationService.postReservation(request, 1L))
@@ -265,10 +272,10 @@ class ReservationServiceTest {
         CreateReservationRequest request = new CreateReservationRequest(
                 ResourceType.ROOM, 999L, START, END, "회의", null
         );
-        given(reservationRepository.existsByStartAtBeforeAndEndAtAfterAndResourceTypeAndResourceIdAndStatus(
-                END, START, ResourceType.ROOM, 999L, ReservationStatus.CONFIRMED
-        )).willReturn(false);
-        given(roomRepository.findById(999L)).willReturn(Optional.empty());
+        User user = User.create("test@test.com", "pass", "홍길동", Department.YOUTH, Role.USER);
+
+        given(userRepository.findById(1L)).willReturn(Optional.of(user));
+        given(roomRepository.findByIdForUpdate(999L)).willReturn(Optional.empty());
 
         // when / then
         assertThatThrownBy(() -> reservationService.postReservation(request, 1L))
@@ -282,17 +289,64 @@ class ReservationServiceTest {
         CreateReservationRequest request = new CreateReservationRequest(
                 ResourceType.VEHICLE, 1L, START, END, "출장", "서울"
         );
-        Vehicle vehicle = Vehicle.create("소나타", "123가4567", 5, null);
-
-        given(reservationRepository.existsByStartAtBeforeAndEndAtAfterAndResourceTypeAndResourceIdAndStatus(
-                END, START, ResourceType.VEHICLE, 1L, ReservationStatus.CONFIRMED
-        )).willReturn(false);
-        given(vehicleRepository.findById(1L)).willReturn(Optional.of(vehicle));
         given(userRepository.findById(999L)).willReturn(Optional.empty());
 
         // when / then
         assertThatThrownBy(() -> reservationService.postReservation(request, 999L))
                 .isInstanceOf(AuthException.class);
+        then(vehicleRepository).should(never()).findByIdForUpdate(any());
+        then(reservationRepository).should(never()).save(any());
+    }
+
+    @Test
+    void postReservation_비활성차량_예외발생() {
+        // given
+        CreateReservationRequest request = new CreateReservationRequest(
+                ResourceType.VEHICLE, 1L, START, END, "출장", "서울"
+        );
+        User user = User.create("test@test.com", "pass", "홍길동", Department.YOUTH, Role.USER);
+        Vehicle inactiveVehicle = Vehicle.create("소나타", "123가4567", 5, null);
+        inactiveVehicle.changeStatus(VehicleStatus.INACTIVE);
+
+        given(userRepository.findById(1L)).willReturn(Optional.of(user));
+        given(vehicleRepository.findByIdForUpdate(1L)).willReturn(Optional.of(inactiveVehicle));
+
+        // when / then
+        assertThatThrownBy(() -> reservationService.postReservation(request, 1L))
+                .isInstanceOf(VehicleException.class);
+        then(reservationRepository).should(never()).save(any());
+    }
+
+    @Test
+    void postReservation_비활성부속실_예외발생() {
+        // given
+        CreateReservationRequest request = new CreateReservationRequest(
+                ResourceType.ROOM, 1L, START, END, "회의", null
+        );
+        User user = User.create("test@test.com", "pass", "홍길동", Department.YOUTH, Role.USER);
+        Room inactiveRoom = Room.create("회의실 A", "3층", 8, null);
+        inactiveRoom.changeStatus(RoomStatus.INACTIVE);
+
+        given(userRepository.findById(1L)).willReturn(Optional.of(user));
+        given(roomRepository.findByIdForUpdate(1L)).willReturn(Optional.of(inactiveRoom));
+
+        // when / then
+        assertThatThrownBy(() -> reservationService.postReservation(request, 1L))
+                .isInstanceOf(RoomException.class);
+        then(reservationRepository).should(never()).save(any());
+    }
+
+    @Test
+    void postReservation_부속실예약에destination입력_예외발생() {
+        // given
+        CreateReservationRequest request = new CreateReservationRequest(
+                ResourceType.ROOM, 1L, START, END, "회의", "서울 강남구"
+        );
+
+        // when / then
+        assertThatThrownBy(() -> reservationService.postReservation(request, 1L))
+                .isInstanceOf(ReservationException.class);
+        then(userRepository).should(never()).findById(any());
         then(reservationRepository).should(never()).save(any());
     }
 }
