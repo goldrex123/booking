@@ -35,6 +35,7 @@ public class Reservation extends BaseTimeEntity {
     @Column(nullable = false)
     private LocalDateTime endAt;
 
+    @Column(nullable = false)
     private String purpose;
 
     private String destination;
