@@ -16,10 +16,12 @@ import sky.ch.booking.domain.reservation.exception.ReservationErrorCode;
 import sky.ch.booking.domain.reservation.exception.ReservationException;
 import sky.ch.booking.domain.reservation.repository.ReservationRepository;
 import sky.ch.booking.domain.room.entity.Room;
+import sky.ch.booking.domain.room.entity.RoomStatus;
 import sky.ch.booking.domain.room.exception.RoomErrorCode;
 import sky.ch.booking.domain.room.exception.RoomException;
 import sky.ch.booking.domain.room.repository.RoomRepository;
 import sky.ch.booking.domain.vehicle.entity.Vehicle;
+import sky.ch.booking.domain.vehicle.entity.VehicleStatus;
 import sky.ch.booking.domain.vehicle.exception.VehicleErrorCode;
 import sky.ch.booking.domain.vehicle.exception.VehicleException;
 import sky.ch.booking.domain.vehicle.repository.VehicleRepository;
@@ -77,8 +79,34 @@ public class ReservationService {
         if (!request.startAt().isBefore(request.endAt())) {
             throw new ReservationException(ReservationErrorCode.INVALID_DATE_RANGE);
         }
+        if (request.resourceType() == ResourceType.ROOM && request.destination() != null) {
+            throw new ReservationException(ReservationErrorCode.DESTINATION_NOT_ALLOWED);
+        }
 
-        if(reservationRepository.existsByStartAtBeforeAndEndAtAfterAndResourceTypeAndResourceIdAndStatus(
+        User user = userRepository.findById(userId)
+                .orElseThrow(() -> new AuthException(AuthErrorCode.USER_NOT_FOUND));
+
+        // 비관적 락으로 자원 행을 잠근 뒤 상태 검사 → 충돌 검사 → 저장을 하나의 트랜잭션 내에서 직렬화
+        String resourceName = switch (request.resourceType()) {
+            case ROOM -> {
+                Room room = roomRepository.findByIdForUpdate(request.resourceId())
+                        .orElseThrow(() -> new RoomException(RoomErrorCode.NOT_FOUND_ROOM));
+                if (room.getStatus() != RoomStatus.ACTIVE) {
+                    throw new RoomException(RoomErrorCode.NOT_AVAILABLE_ROOM);
+                }
+                yield room.getName();
+            }
+            case VEHICLE -> {
+                Vehicle vehicle = vehicleRepository.findByIdForUpdate(request.resourceId())
+                        .orElseThrow(() -> new VehicleException(VehicleErrorCode.NOT_FOUND_VEHICLE));
+                if (vehicle.getStatus() != VehicleStatus.ACTIVE) {
+                    throw new VehicleException(VehicleErrorCode.NOT_AVAILABLE_VEHICLE);
+                }
+                yield vehicle.getModel();
+            }
+        };
+
+        if (reservationRepository.existsByStartAtBeforeAndEndAtAfterAndResourceTypeAndResourceIdAndStatus(
                 request.endAt(),
                 request.startAt(),
                 request.resourceType(),
@@ -87,20 +115,6 @@ public class ReservationService {
         )) {
             throw new ReservationException(ReservationErrorCode.CONFLICT);
         }
-
-        String resourceName;
-        if(request.resourceType() == ResourceType.ROOM) {
-            Room room = roomRepository.findById(request.resourceId())
-                    .orElseThrow(() -> new RoomException(RoomErrorCode.NOT_FOUND_ROOM));
-            resourceName = room.getName();
-        } else {
-            Vehicle vehicle = vehicleRepository.findById(request.resourceId())
-                    .orElseThrow(() -> new VehicleException(VehicleErrorCode.NOT_FOUND_VEHICLE));
-            resourceName = vehicle.getModel();
-        }
-
-        User user = userRepository.findById(userId)
-                .orElseThrow(() -> new AuthException(AuthErrorCode.USER_NOT_FOUND));
 
         Reservation reservation = Reservation.create(
                 request.resourceType(),

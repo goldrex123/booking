@@ -72,19 +72,20 @@ public class ReservationController {
                     차량 또는 부속실 예약을 생성합니다.
 
                     - 동일 자원·동일 시간에 `CONFIRMED` 상태 예약이 있으면 `409` 반환
-                    - `destination`은 차량 예약 전용 (부속실 예약 시 null)
-                    - 동시 예약 처리: 낙관적 락(`@Version`) 적용
+                    - `destination`은 차량 예약 전용 (부속실 예약 시 반드시 null)
+                    - INACTIVE 상태 자원은 예약 불가 (`409` 반환)
+                    - 동시 예약 처리: 비관적 락(`SELECT FOR UPDATE`)으로 직렬화
                     """,
             security = @SecurityRequirement(name = "JWT"),
             responses = {
                     @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "201", description = "예약 생성 성공"),
-                    @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "400", description = "입력값 오류 또는 시작일이 종료일 이후",
+                    @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "400", description = "입력값 오류, 시작일이 종료일 이후, 또는 부속실 예약에 destination 입력",
                             content = @Content(schema = @Schema(example = "{\"success\":false,\"data\":null,\"message\":\"입력값이 올바르지 않습니다\"}"))),
                     @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "401", description = "인증 필요",
                             content = @Content(schema = @Schema(example = "{\"success\":false,\"data\":null,\"message\":\"인증이 필요합니다\"}"))),
                     @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "404", description = "자원(차량·부속실) 또는 사용자 없음",
                             content = @Content(schema = @Schema(example = "{\"success\":false,\"data\":null,\"message\":\"등록된 차량 정보가 없습니다\"}"))),
-                    @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "409", description = "시간 충돌 — 해당 시간에 이미 예약 존재",
+                    @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "409", description = "시간 충돌 또는 비활성 자원",
                             content = @Content(schema = @Schema(example = "{\"success\":false,\"data\":null,\"message\":\"해당 시간에 이미 예약이 존재합니다\"}")))
             }
     )

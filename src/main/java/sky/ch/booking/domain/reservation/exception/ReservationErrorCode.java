@@ -14,6 +14,7 @@ public enum ReservationErrorCode implements BaseCode {
     FORBIDDEN(HttpStatus.FORBIDDEN, "RV002", "본인 또는 관리자만 접근할 수 있습니다"),
     NOT_MODIFIABLE(HttpStatus.BAD_REQUEST, "RV003", "확정 상태이며 시작 전인 예약만 수정할 수 있습니다"),
     INVALID_DATE_RANGE(HttpStatus.BAD_REQUEST, "RV004", "시작일은 종료일보다 이전이어야 합니다"),
+    DESTINATION_NOT_ALLOWED(HttpStatus.BAD_REQUEST, "RV005", "부속실 예약에는 목적지를 입력할 수 없습니다"),
     ;
 
     private final HttpStatus httpStatus;
