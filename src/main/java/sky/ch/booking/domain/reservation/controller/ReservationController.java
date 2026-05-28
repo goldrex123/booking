@@ -94,8 +94,32 @@ public class ReservationController {
             @Parameter(hidden = true) @AuthenticationPrincipal CustomUserDetails customUserDetails,
             @Valid @RequestBody CreateReservationRequest request
     ) {
-        Long userId = Long.parseLong(customUserDetails.getUsername());
+        Long userId = getUserId(customUserDetails);
         return ResponseEntity.status(HttpStatus.CREATED)
                 .body(ApiResponse.ok(CommonCode.SUCCESS, reservationService.postReservation(request, userId)));
+    }
+
+    @Operation(
+            summary = "내 예약 목록 조회",
+            description = "로그인한 사용자의 예약 목록을 최신순(createdAt 내림차순)으로 반환합니다.",
+            security = @SecurityRequirement(name = "JWT"),
+            responses = {
+                    @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "200", description = "조회 성공"),
+                    @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "401", description = "인증 필요",
+                            content = @Content(schema = @Schema(example = "{\"success\":false,\"data\":null,\"message\":\"인증이 필요합니다\"}")))
+            }
+    )
+    @GetMapping("/my")
+    public ResponseEntity<ApiResponse<List<ReservationResponse>>> getMyReservations(
+            @Parameter(hidden = true) @AuthenticationPrincipal CustomUserDetails customUserDetails
+    ) {
+        Long userId = getUserId(customUserDetails);
+        return ResponseEntity.ok(ApiResponse.ok(
+                CommonCode.SUCCESS, reservationService.getMyReservations(userId)
+        ));
+    }
+
+    private long getUserId(CustomUserDetails customUserDetails) {
+        return Long.parseLong(customUserDetails.getUsername());
     }
 }

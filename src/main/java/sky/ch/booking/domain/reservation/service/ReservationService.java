@@ -83,28 +83,10 @@ public class ReservationService {
             throw new ReservationException(ReservationErrorCode.DESTINATION_NOT_ALLOWED);
         }
 
-        User user = userRepository.findById(userId)
-                .orElseThrow(() -> new AuthException(AuthErrorCode.USER_NOT_FOUND));
+        User user = findUser(userId);
 
         // 비관적 락으로 자원 행을 잠근 뒤 상태 검사 → 충돌 검사 → 저장을 하나의 트랜잭션 내에서 직렬화
-        String resourceName = switch (request.resourceType()) {
-            case ROOM -> {
-                Room room = roomRepository.findByIdForUpdate(request.resourceId())
-                        .orElseThrow(() -> new RoomException(RoomErrorCode.NOT_FOUND_ROOM));
-                if (room.getStatus() != RoomStatus.ACTIVE) {
-                    throw new RoomException(RoomErrorCode.NOT_AVAILABLE_ROOM);
-                }
-                yield room.getName();
-            }
-            case VEHICLE -> {
-                Vehicle vehicle = vehicleRepository.findByIdForUpdate(request.resourceId())
-                        .orElseThrow(() -> new VehicleException(VehicleErrorCode.NOT_FOUND_VEHICLE));
-                if (vehicle.getStatus() != VehicleStatus.ACTIVE) {
-                    throw new VehicleException(VehicleErrorCode.NOT_AVAILABLE_VEHICLE);
-                }
-                yield vehicle.getModel();
-            }
-        };
+        String resourceName = resolveResourceName(request.resourceType(), request.resourceId());
 
         if (reservationRepository.existsByStartAtBeforeAndEndAtAfterAndResourceTypeAndResourceIdAndStatus(
                 request.endAt(),
@@ -129,6 +111,49 @@ public class ReservationService {
         reservationRepository.save(reservation);
 
         return ReservationResponse.from(reservation, resourceName, user);
+    }
+
+    public List<ReservationResponse> getMyReservations(Long userId) {
+        User user = findUser(userId);
+        List<Reservation> reservations = reservationRepository.findByUserIdOrderByCreatedAtDesc(userId);
+
+        Map<Long, String> vehicleNames = loadVehicleNames(reservations);
+        Map<Long, String> roomNames = loadRoomNames(reservations);
+
+        return reservations.stream()
+                .map(r -> {
+                    String resourceName = r.getResourceType() == ResourceType.ROOM
+                            ? roomNames.getOrDefault(r.getResourceId(), "알 수 없음")
+                            : vehicleNames.getOrDefault(r.getResourceId(), "알 수 없음");
+                    return ReservationResponse.from(r, resourceName, user);
+                })
+                .toList();
+    }
+
+    private String resolveResourceName(ResourceType resourceType, Long resourceId) {
+        return switch (resourceType) {
+            case ROOM -> {
+                Room room = roomRepository.findByIdForUpdate(resourceId)
+                        .orElseThrow(() -> new RoomException(RoomErrorCode.NOT_FOUND_ROOM));
+                if (room.getStatus() != RoomStatus.ACTIVE) {
+                    throw new RoomException(RoomErrorCode.NOT_AVAILABLE_ROOM);
+                }
+                yield room.getName();
+            }
+            case VEHICLE -> {
+                Vehicle vehicle = vehicleRepository.findByIdForUpdate(resourceId)
+                        .orElseThrow(() -> new VehicleException(VehicleErrorCode.NOT_FOUND_VEHICLE));
+                if (vehicle.getStatus() != VehicleStatus.ACTIVE) {
+                    throw new VehicleException(VehicleErrorCode.NOT_AVAILABLE_VEHICLE);
+                }
+                yield vehicle.getModel();
+            }
+        };
+    }
+
+    private User findUser(Long userId) {
+        return userRepository.findById(userId)
+                .orElseThrow(() -> new AuthException(AuthErrorCode.USER_NOT_FOUND));
     }
 
     private Map<Long, User> loadUsers(List<Reservation> reservations) {

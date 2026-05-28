@@ -22,4 +22,7 @@ public interface ReservationRepository extends JpaRepository<Reservation, Long> 
     List<Reservation> findByStartAtBeforeAndEndAtAfterAndResourceTypeOrderByStartAtAsc(
             LocalDateTime endDate, LocalDateTime startDate, ResourceType resourceType
     );
+
+    List<Reservation> findByUserIdOrderByCreatedAtDesc(Long userId);
+
 }
