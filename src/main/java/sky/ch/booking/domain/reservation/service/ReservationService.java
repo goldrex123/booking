@@ -3,12 +3,14 @@ package sky.ch.booking.domain.reservation.service;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import sky.ch.booking.domain.auth.entity.Role;
 import sky.ch.booking.domain.auth.entity.User;
 import sky.ch.booking.domain.auth.exception.AuthErrorCode;
 import sky.ch.booking.domain.auth.exception.AuthException;
 import sky.ch.booking.domain.auth.repository.UserRepository;
 import sky.ch.booking.domain.reservation.dto.CreateReservationRequest;
 import sky.ch.booking.domain.reservation.dto.ReservationResponse;
+import sky.ch.booking.domain.reservation.dto.UpdateReservationRequest;
 import sky.ch.booking.domain.reservation.entity.Reservation;
 import sky.ch.booking.domain.reservation.entity.ReservationStatus;
 import sky.ch.booking.domain.reservation.entity.ResourceType;
@@ -138,6 +140,40 @@ public class ReservationService {
         if (user == null) {
             return ReservationResponse.fromDeleted(reservation, resourceName);
         }
+        return ReservationResponse.from(reservation, resourceName, user);
+    }
+
+    @Transactional
+    public ReservationResponse putReservation(Long id, UpdateReservationRequest request, long userId) {
+        Reservation reservation = findReservation(id);
+
+        if (!reservation.getStartAt().isAfter(LocalDateTime.now()) || reservation.getStatus() != ReservationStatus.CONFIRMED) {
+            throw new ReservationException(ReservationErrorCode.NOT_MODIFIABLE);
+        }
+        if (!request.startAt().isBefore(request.endAt())) {
+            throw new ReservationException(ReservationErrorCode.INVALID_DATE_RANGE);
+        }
+        if (reservation.getResourceType() == ResourceType.ROOM && request.destination() != null) {
+            throw new ReservationException(ReservationErrorCode.DESTINATION_NOT_ALLOWED);
+        }
+
+        User user = findUser(userId);
+
+        if (user.getRole() != Role.ADMIN && !reservation.getUserId().equals(userId)) {
+            throw new ReservationException(ReservationErrorCode.FORBIDDEN);
+        }
+
+        if (reservationRepository.existsByStartAtBeforeAndEndAtAfterAndResourceTypeAndResourceIdAndStatusAndIdNot(
+                request.endAt(), request.startAt(),
+                reservation.getResourceType(), reservation.getResourceId(),
+                ReservationStatus.CONFIRMED, id
+        )) {
+            throw new ReservationException(ReservationErrorCode.CONFLICT);
+        }
+
+        String resourceName = resolveResourceNameForRead(reservation.getResourceType(), reservation.getResourceId());
+        reservation.update(request.startAt(), request.endAt(), request.purpose(), request.destination());
+
         return ReservationResponse.from(reservation, resourceName, user);
     }
 

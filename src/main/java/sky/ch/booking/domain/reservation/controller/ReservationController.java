@@ -17,6 +17,7 @@ import sky.ch.booking.common.ApiResponse;
 import sky.ch.booking.common.exception.CommonCode;
 import sky.ch.booking.domain.reservation.dto.CreateReservationRequest;
 import sky.ch.booking.domain.reservation.dto.ReservationResponse;
+import sky.ch.booking.domain.reservation.dto.UpdateReservationRequest;
 import sky.ch.booking.domain.reservation.entity.ResourceType;
 import sky.ch.booking.domain.reservation.service.ReservationService;
 import sky.ch.booking.security.userdetails.CustomUserDetails;
@@ -139,6 +140,40 @@ public class ReservationController {
         return ResponseEntity.ok(
                 ApiResponse.ok(CommonCode.SUCCESS, reservationService.getReservation(id))
         );
+    }
+
+    @Operation(
+            summary = "예약 수정",
+            description = """
+                    CONFIRMED 상태이며 시작 전인 예약의 시간·목적·목적지를 수정합니다.
+
+                    - 본인 또는 ADMIN만 수정 가능
+                    - 수정 후 시간대에 동일 자원의 충돌 예약이 있으면 `409` 반환
+                    - 부속실 예약에 `destination` 입력 불가
+                    """,
+            security = @SecurityRequirement(name = "JWT"),
+            responses = {
+                    @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "200", description = "수정 성공"),
+                    @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "400", description = "수정 불가 상태, 날짜 범위 오류, 또는 부속실에 destination 입력",
+                            content = @Content(schema = @Schema(example = "{\"success\":false,\"data\":null,\"message\":\"확정 상태이며 시작 전인 예약만 수정할 수 있습니다\"}"))),
+                    @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "401", description = "인증 필요",
+                            content = @Content(schema = @Schema(example = "{\"success\":false,\"data\":null,\"message\":\"인증이 필요합니다\"}"))),
+                    @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "403", description = "권한 없음",
+                            content = @Content(schema = @Schema(example = "{\"success\":false,\"data\":null,\"message\":\"본인 또는 관리자만 접근할 수 있습니다\"}"))),
+                    @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "404", description = "예약 없음",
+                            content = @Content(schema = @Schema(example = "{\"success\":false,\"data\":null,\"message\":\"예약 정보가 없습니다\"}"))),
+                    @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "409", description = "시간 충돌",
+                            content = @Content(schema = @Schema(example = "{\"success\":false,\"data\":null,\"message\":\"해당 시간에 이미 예약이 존재합니다\"}")))
+            }
+    )
+    @PutMapping("/{id}")
+    public ResponseEntity<ApiResponse<ReservationResponse>> putReservation(
+            @Parameter(hidden = true) @AuthenticationPrincipal CustomUserDetails customUserDetails,
+            @Parameter(description = "예약 ID", required = true, example = "1") @PathVariable Long id,
+            @Valid @RequestBody UpdateReservationRequest request
+    ) {
+        long userId = getUserId(customUserDetails);
+        return ResponseEntity.ok(ApiResponse.ok(CommonCode.SUCCESS, reservationService.putReservation(id, request, userId)));
     }
 
     private long getUserId(CustomUserDetails customUserDetails) {

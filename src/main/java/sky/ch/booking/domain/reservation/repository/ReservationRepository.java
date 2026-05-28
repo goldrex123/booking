@@ -15,6 +15,11 @@ public interface ReservationRepository extends JpaRepository<Reservation, Long> 
             ResourceType resourceType, Long resourceId, ReservationStatus status
     );
 
+    boolean existsByStartAtBeforeAndEndAtAfterAndResourceTypeAndResourceIdAndStatusAndIdNot(
+            LocalDateTime endAt, LocalDateTime startAt,
+            ResourceType resourceType, Long resourceId, ReservationStatus status, Long excludeId
+    );
+
     List<Reservation> findByStartAtBeforeAndEndAtAfterOrderByStartAtAsc(
             LocalDateTime endDate, LocalDateTime startDate
     );
