@@ -286,4 +286,49 @@ class ReservationControllerTest {
                 .andExpect(status().isUnauthorized())
                 .andExpect(jsonPath("$.success").value(false));
     }
+
+    // ==================== GET /api/reservations/{id} ====================
+
+    @Test
+    void getReservation_정상요청_200반환() throws Exception {
+        // given
+        ReservationResponse response = new ReservationResponse(
+                1L, ResourceType.VEHICLE, 1L, "소나타",
+                1L, "홍길동", "YOUTH",
+                START, END, "출장", "서울",
+                ReservationStatus.CONFIRMED, Instant.now()
+        );
+        givenUserAuth();
+        given(reservationService.getReservation(1L)).willReturn(response);
+
+        // when / then
+        mockMvc.perform(get("/api/reservations/1")
+                        .header("Authorization", "Bearer user-token"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.success").value(true))
+                .andExpect(jsonPath("$.data.id").value(1))
+                .andExpect(jsonPath("$.data.resourceName").value("소나타"))
+                .andExpect(jsonPath("$.data.status").value("CONFIRMED"));
+    }
+
+    @Test
+    void getReservation_존재하지않는예약_404반환() throws Exception {
+        // given
+        givenUserAuth();
+        willThrow(new ReservationException(ReservationErrorCode.NOT_FOUND))
+                .given(reservationService).getReservation(999L);
+
+        // when / then
+        mockMvc.perform(get("/api/reservations/999")
+                        .header("Authorization", "Bearer user-token"))
+                .andExpect(status().isNotFound())
+                .andExpect(jsonPath("$.success").value(false));
+    }
+
+    @Test
+    void getReservation_인증없음_401반환() throws Exception {
+        mockMvc.perform(get("/api/reservations/1"))
+                .andExpect(status().isUnauthorized())
+                .andExpect(jsonPath("$.success").value(false));
+    }
 }
