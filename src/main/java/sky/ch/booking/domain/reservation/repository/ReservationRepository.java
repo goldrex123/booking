@@ -9,6 +9,7 @@ import sky.ch.booking.domain.reservation.entity.ResourceType;
 
 import java.time.LocalDateTime;
 import java.util.List;
+import java.util.Set;
 
 public interface ReservationRepository extends JpaRepository<Reservation, Long> {
 
@@ -58,5 +59,17 @@ public interface ReservationRepository extends JpaRepository<Reservation, Long> 
     );
 
     List<Reservation> findByUserIdOrderByCreatedAtDesc(Long userId);
+
+    @Query("SELECT r.resourceId FROM Reservation r " +
+            "WHERE r.startAt < :endAt AND r.endAt > :startAt " +
+            "AND r.resourceType = :resourceType AND r.status = :status " +
+            "AND (:excludeId IS NULL OR r.resourceId <> :excludeId)")
+    Set<Long> findConflictingResourceIds(
+            @Param("endAt") LocalDateTime endAt,
+            @Param("startAt") LocalDateTime startAt,
+            @Param("resourceType") ResourceType resourceType,
+            @Param("status") ReservationStatus status,
+            @Param("excludeId") Long excludeId
+    );
 
 }

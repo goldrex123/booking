@@ -3,17 +3,22 @@ package sky.ch.booking.domain.vehicle.service;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import sky.ch.booking.domain.reservation.entity.ReservationStatus;
+import sky.ch.booking.domain.reservation.entity.ResourceType;
+import sky.ch.booking.domain.reservation.repository.ReservationRepository;
 import sky.ch.booking.domain.vehicle.dto.CreateVehicleRequest;
 import sky.ch.booking.domain.vehicle.dto.UpdateVehicleRequest;
 import sky.ch.booking.domain.vehicle.dto.UpdateVehicleStatusRequest;
 import sky.ch.booking.domain.vehicle.dto.VehicleResponse;
-
 import sky.ch.booking.domain.vehicle.entity.Vehicle;
+import sky.ch.booking.domain.vehicle.entity.VehicleStatus;
 import sky.ch.booking.domain.vehicle.exception.VehicleErrorCode;
 import sky.ch.booking.domain.vehicle.exception.VehicleException;
 import sky.ch.booking.domain.vehicle.repository.VehicleRepository;
 
+import java.time.LocalDateTime;
 import java.util.List;
+import java.util.Set;
 
 @Service
 @RequiredArgsConstructor
@@ -21,6 +26,7 @@ import java.util.List;
 public class VehicleService {
 
     private final VehicleRepository vehicleRepository;
+    private final ReservationRepository reservationRepository;
 
 
     public List<VehicleResponse> getAllVehicles() {
@@ -58,6 +64,21 @@ public class VehicleService {
         vehicle.changeStatus(request.status());
 
         return VehicleResponse.from(vehicle);
+    }
+
+    public List<VehicleResponse> getAvailableVehicles(LocalDateTime startAt, LocalDateTime endAt, Long excludeId) {
+        if (!startAt.isBefore(endAt)) {
+            throw new VehicleException(VehicleErrorCode.INVALID_DATE_RANGE);
+        }
+
+        Set<Long> reservedIds = reservationRepository.findConflictingResourceIds(
+                endAt, startAt, ResourceType.VEHICLE, ReservationStatus.CONFIRMED, excludeId
+        );
+
+        return vehicleRepository.findByStatus(VehicleStatus.ACTIVE).stream()
+                .filter(v -> !reservedIds.contains(v.getId()))
+                .map(VehicleResponse::from)
+                .toList();
     }
 
     private Vehicle findVehicle(Long id) {
