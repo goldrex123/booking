@@ -176,6 +176,30 @@ public class ReservationController {
         return ResponseEntity.ok(ApiResponse.ok(CommonCode.SUCCESS, reservationService.putReservation(id, request, userId)));
     }
 
+    @Operation(
+            summary = "예약 취소",
+            description = "예약 상태를 CANCELLED로 변경합니다 (물리적 삭제 아님). 본인 또는 ADMIN만 취소 가능합니다.",
+            security = @SecurityRequirement(name = "JWT"),
+            responses = {
+                    @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "204", description = "취소 성공"),
+                    @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "401", description = "인증 필요",
+                            content = @Content(schema = @Schema(example = "{\"success\":false,\"data\":null,\"message\":\"인증이 필요합니다\"}"))),
+                    @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "403", description = "권한 없음",
+                            content = @Content(schema = @Schema(example = "{\"success\":false,\"data\":null,\"message\":\"본인 또는 관리자만 접근할 수 있습니다\"}"))),
+                    @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "404", description = "예약 없음",
+                            content = @Content(schema = @Schema(example = "{\"success\":false,\"data\":null,\"message\":\"예약 정보가 없습니다\"}")))
+            }
+    )
+    @DeleteMapping("/{id}")
+    public ResponseEntity<Void> deleteReservation(
+            @Parameter(hidden = true) @AuthenticationPrincipal CustomUserDetails customUserDetails,
+            @Parameter(description = "예약 ID", required = true, example = "1") @PathVariable Long id
+    ) {
+        long userId = getUserId(customUserDetails);
+        reservationService.deleteReservation(id, userId);
+        return ResponseEntity.noContent().build();
+    }
+
     private long getUserId(CustomUserDetails customUserDetails) {
         return Long.parseLong(customUserDetails.getUsername());
     }

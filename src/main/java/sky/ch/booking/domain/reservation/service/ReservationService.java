@@ -177,6 +177,19 @@ public class ReservationService {
         return ReservationResponse.from(reservation, resourceName, user);
     }
 
+    @Transactional
+    public void deleteReservation(Long id, Long userId) {
+        Reservation reservation = findReservation(id);
+
+        User user = findUser(userId);
+
+        if (user.getRole() != Role.ADMIN && !reservation.getUserId().equals(userId)) {
+            throw new ReservationException(ReservationErrorCode.FORBIDDEN);
+        }
+
+        reservation.changeStatus(ReservationStatus.CANCELLED);
+    }
+
     private Reservation findReservation(Long id) {
         return reservationRepository.findById(id)
                 .orElseThrow(() -> new ReservationException(ReservationErrorCode.NOT_FOUND));

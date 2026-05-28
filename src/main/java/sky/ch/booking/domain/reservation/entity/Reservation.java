@@ -72,11 +72,14 @@ public class Reservation extends BaseTimeEntity {
                 .build();
     }
 
-
     public void update(LocalDateTime startAt, LocalDateTime endAt, String purpose, String destination) {
         this.startAt = startAt;
         this.endAt = endAt;
         this.purpose = purpose;
         this.destination = destination;
+    }
+
+    public void changeStatus(ReservationStatus status) {
+        this.status = status;
     }
 }
