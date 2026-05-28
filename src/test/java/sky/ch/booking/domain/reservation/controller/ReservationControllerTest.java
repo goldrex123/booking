@@ -485,6 +485,20 @@ class ReservationControllerTest {
     }
 
     @Test
+    void deleteReservation_이미취소된예약_400반환() throws Exception {
+        // given
+        givenUserAuth();
+        willThrow(new ReservationException(ReservationErrorCode.ALREADY_CANCELLED))
+                .given(reservationService).deleteReservation(eq(1L), anyLong());
+
+        // when / then
+        mockMvc.perform(delete("/api/reservations/1")
+                        .header("Authorization", "Bearer user-token"))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.success").value(false));
+    }
+
+    @Test
     void deleteReservation_인증없음_401반환() throws Exception {
         mockMvc.perform(delete("/api/reservations/1"))
                 .andExpect(status().isUnauthorized())

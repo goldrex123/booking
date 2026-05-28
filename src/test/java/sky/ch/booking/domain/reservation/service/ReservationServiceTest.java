@@ -65,13 +65,13 @@ class ReservationServiceTest {
     @Test
     void getReservations_resourceType없이_전체예약반환() {
         // given
-        Reservation reservation = Reservation.create(ResourceType.VEHICLE, 1L, 1L, START, END, "출장", "서울", ReservationStatus.CONFIRMED);
+        Reservation reservation = Reservation.create(ResourceType.VEHICLE, 1L, 1L, START, END, "출장", "서울");
         User user = User.create("test@test.com", "pass", "홍길동", Department.YOUTH, Role.USER);
         Vehicle vehicle = Vehicle.create("소나타", "123가4567", 5, null);
         ReflectionTestUtils.setField(user, "id", 1L);
         ReflectionTestUtils.setField(vehicle, "id", 1L);
 
-        given(reservationRepository.findByStartAtBeforeAndEndAtAfterOrderByStartAtAsc(END, START))
+        given(reservationRepository.findConfirmedInRange(END, START))
                 .willReturn(List.of(reservation));
         given(userRepository.findAllById(any())).willReturn(List.of(user));
         given(vehicleRepository.findAllById(any())).willReturn(List.of(vehicle));
@@ -86,19 +86,19 @@ class ReservationServiceTest {
         assertThat(result.get(0).userName()).isEqualTo("홍길동");
         assertThat(result.get(0).startAt()).isEqualTo(START);
         assertThat(result.get(0).endAt()).isEqualTo(END);
-        then(reservationRepository).should().findByStartAtBeforeAndEndAtAfterOrderByStartAtAsc(END, START);
+        then(reservationRepository).should().findConfirmedInRange(END, START);
     }
 
     @Test
     void getReservations_resourceType필터_해당타입예약반환() {
         // given
-        Reservation reservation = Reservation.create(ResourceType.VEHICLE, 2L, 1L, START, END, "외근", "부산", ReservationStatus.CONFIRMED);
+        Reservation reservation = Reservation.create(ResourceType.VEHICLE, 2L, 1L, START, END, "외근", "부산");
         User user = User.create("test@test.com", "pass", "홍길동", Department.FATHER, Role.USER);
         Vehicle vehicle = Vehicle.create("그랜저", "456나7890", 5, null);
         ReflectionTestUtils.setField(user, "id", 1L);
         ReflectionTestUtils.setField(vehicle, "id", 2L);
 
-        given(reservationRepository.findByStartAtBeforeAndEndAtAfterAndResourceTypeOrderByStartAtAsc(END, START, ResourceType.VEHICLE))
+        given(reservationRepository.findConfirmedInRangeByType(END, START, ResourceType.VEHICLE))
                 .willReturn(List.of(reservation));
         given(userRepository.findAllById(any())).willReturn(List.of(user));
         given(vehicleRepository.findAllById(any())).willReturn(List.of(vehicle));
@@ -109,14 +109,14 @@ class ReservationServiceTest {
         // then
         assertThat(result).hasSize(1);
         assertThat(result.get(0).resourceType()).isEqualTo(ResourceType.VEHICLE);
-        then(reservationRepository).should().findByStartAtBeforeAndEndAtAfterAndResourceTypeOrderByStartAtAsc(END, START, ResourceType.VEHICLE);
-        then(reservationRepository).should(never()).findByStartAtBeforeAndEndAtAfterOrderByStartAtAsc(any(), any());
+        then(reservationRepository).should().findConfirmedInRangeByType(END, START, ResourceType.VEHICLE);
+        then(reservationRepository).should(never()).findConfirmedInRange(any(), any());
     }
 
     @Test
     void getReservations_결과없음_빈목록반환() {
         // given
-        given(reservationRepository.findByStartAtBeforeAndEndAtAfterOrderByStartAtAsc(END, START))
+        given(reservationRepository.findConfirmedInRange(END, START))
                 .willReturn(List.of());
 
         // when
@@ -140,10 +140,10 @@ class ReservationServiceTest {
     @Test
     void getReservations_탈퇴유저예약_알수없음반환() {
         // given
-        Reservation reservation = Reservation.create(ResourceType.VEHICLE, 1L, 999L, START, END, "출장", "서울", ReservationStatus.CONFIRMED);
+        Reservation reservation = Reservation.create(ResourceType.VEHICLE, 1L, 999L, START, END, "출장", "서울");
         Vehicle vehicle = Vehicle.create("소나타", "123가4567", 5, null);
 
-        given(reservationRepository.findByStartAtBeforeAndEndAtAfterOrderByStartAtAsc(END, START))
+        given(reservationRepository.findConfirmedInRange(END, START))
                 .willReturn(List.of(reservation));
         given(userRepository.findAllById(any())).willReturn(List.of());
         given(vehicleRepository.findAllById(any())).willReturn(List.of(vehicle));
@@ -164,7 +164,7 @@ class ReservationServiceTest {
         // given
         User user = User.create("test@test.com", "pass", "홍길동", Department.YOUTH, Role.USER);
         ReflectionTestUtils.setField(user, "id", 1L);
-        Reservation reservation = Reservation.create(ResourceType.VEHICLE, 1L, 1L, START, END, "출장", "서울", ReservationStatus.CONFIRMED);
+        Reservation reservation = Reservation.create(ResourceType.VEHICLE, 1L, 1L, START, END, "출장", "서울");
         Vehicle vehicle = Vehicle.create("소나타", "123가4567", 5, null);
         ReflectionTestUtils.setField(vehicle, "id", 1L);
 
@@ -221,7 +221,7 @@ class ReservationServiceTest {
 
         given(userRepository.findById(1L)).willReturn(Optional.of(user));
         given(vehicleRepository.findByIdForUpdate(1L)).willReturn(Optional.of(vehicle));
-        given(reservationRepository.existsByStartAtBeforeAndEndAtAfterAndResourceTypeAndResourceIdAndStatus(
+        given(reservationRepository.existsConflict(
                 END, START, ResourceType.VEHICLE, 1L, ReservationStatus.CONFIRMED
         )).willReturn(false);
         given(reservationRepository.save(any(Reservation.class))).willAnswer(inv -> inv.getArgument(0));
@@ -250,7 +250,7 @@ class ReservationServiceTest {
 
         given(userRepository.findById(2L)).willReturn(Optional.of(user));
         given(roomRepository.findByIdForUpdate(2L)).willReturn(Optional.of(room));
-        given(reservationRepository.existsByStartAtBeforeAndEndAtAfterAndResourceTypeAndResourceIdAndStatus(
+        given(reservationRepository.existsConflict(
                 END, START, ResourceType.ROOM, 2L, ReservationStatus.CONFIRMED
         )).willReturn(false);
         given(reservationRepository.save(any(Reservation.class))).willAnswer(inv -> inv.getArgument(0));
@@ -275,7 +275,7 @@ class ReservationServiceTest {
 
         given(userRepository.findById(1L)).willReturn(Optional.of(user));
         given(vehicleRepository.findByIdForUpdate(1L)).willReturn(Optional.of(vehicle));
-        given(reservationRepository.existsByStartAtBeforeAndEndAtAfterAndResourceTypeAndResourceIdAndStatus(
+        given(reservationRepository.existsConflict(
                 END, START, ResourceType.VEHICLE, 1L, ReservationStatus.CONFIRMED
         )).willReturn(true);
 
@@ -295,7 +295,7 @@ class ReservationServiceTest {
         // when / then
         assertThatThrownBy(() -> reservationService.postReservation(request, 1L))
                 .isInstanceOf(ReservationException.class);
-        then(reservationRepository).should(never()).existsByStartAtBeforeAndEndAtAfterAndResourceTypeAndResourceIdAndStatus(
+        then(reservationRepository).should(never()).existsConflict(
                 any(), any(), any(), any(), any()
         );
     }
@@ -406,7 +406,7 @@ class ReservationServiceTest {
     @Test
     void getReservation_차량예약_조회성공() {
         // given
-        Reservation reservation = Reservation.create(ResourceType.VEHICLE, 1L, 1L, START, END, "출장", "서울", ReservationStatus.CONFIRMED);
+        Reservation reservation = Reservation.create(ResourceType.VEHICLE, 1L, 1L, START, END, "출장", "서울");
         ReflectionTestUtils.setField(reservation, "id", 1L);
         User user = User.create("test@test.com", "pass", "홍길동", Department.YOUTH, Role.USER);
         ReflectionTestUtils.setField(user, "id", 1L);
@@ -430,7 +430,7 @@ class ReservationServiceTest {
     @Test
     void getReservation_부속실예약_조회성공() {
         // given
-        Reservation reservation = Reservation.create(ResourceType.ROOM, 2L, 2L, START, END, "팀 회의", null, ReservationStatus.CONFIRMED);
+        Reservation reservation = Reservation.create(ResourceType.ROOM, 2L, 2L, START, END, "팀 회의", null);
         ReflectionTestUtils.setField(reservation, "id", 2L);
         User user = User.create("test@test.com", "pass", "김철수", Department.MOTHER, Role.USER);
         ReflectionTestUtils.setField(user, "id", 2L);
@@ -461,6 +461,27 @@ class ReservationServiceTest {
         then(userRepository).should(never()).findById(any());
     }
 
+    @Test
+    void getReservation_탈퇴유저_fromDeleted반환() {
+        // given
+        Reservation reservation = Reservation.create(ResourceType.VEHICLE, 1L, 999L, START, END, "출장", "서울");
+        ReflectionTestUtils.setField(reservation, "id", 1L);
+        Vehicle vehicle = Vehicle.create("소나타", "123가4567", 5, null);
+
+        given(reservationRepository.findById(1L)).willReturn(Optional.of(reservation));
+        given(userRepository.findById(999L)).willReturn(Optional.empty());
+        given(vehicleRepository.findById(1L)).willReturn(Optional.of(vehicle));
+
+        // when
+        ReservationResponse result = reservationService.getReservation(1L);
+
+        // then
+        assertThat(result.id()).isEqualTo(1L);
+        assertThat(result.userName()).isNull();
+        assertThat(result.userDepartment()).isNull();
+        assertThat(result.resourceName()).isEqualTo("소나타");
+    }
+
     // ==================== putReservation ====================
 
     @Test
@@ -468,7 +489,7 @@ class ReservationServiceTest {
         // given
         LocalDateTime futureStart = LocalDateTime.now().plusDays(1);
         LocalDateTime futureEnd = futureStart.plusHours(8);
-        Reservation reservation = Reservation.create(ResourceType.VEHICLE, 1L, 1L, futureStart, futureEnd, "출장", "서울", ReservationStatus.CONFIRMED);
+        Reservation reservation = Reservation.create(ResourceType.VEHICLE, 1L, 1L, futureStart, futureEnd, "출장", "서울");
         ReflectionTestUtils.setField(reservation, "id", 1L);
         User user = User.create("test@test.com", "pass", "홍길동", Department.YOUTH, Role.USER);
         ReflectionTestUtils.setField(user, "id", 1L);
@@ -477,7 +498,7 @@ class ReservationServiceTest {
 
         given(reservationRepository.findById(1L)).willReturn(Optional.of(reservation));
         given(userRepository.findById(1L)).willReturn(Optional.of(user));
-        given(reservationRepository.existsByStartAtBeforeAndEndAtAfterAndResourceTypeAndResourceIdAndStatusAndIdNot(
+        given(reservationRepository.existsConflictExcluding(
                 futureEnd, futureStart, ResourceType.VEHICLE, 1L, ReservationStatus.CONFIRMED, 1L
         )).willReturn(false);
         given(vehicleRepository.findById(1L)).willReturn(Optional.of(vehicle));
@@ -495,16 +516,19 @@ class ReservationServiceTest {
         // given — startAt이 과거
         LocalDateTime pastStart = LocalDateTime.now().minusDays(1);
         LocalDateTime pastEnd = LocalDateTime.now().plusHours(1);
-        Reservation reservation = Reservation.create(ResourceType.VEHICLE, 1L, 1L, pastStart, pastEnd, "출장", "서울", ReservationStatus.CONFIRMED);
+        Reservation reservation = Reservation.create(ResourceType.VEHICLE, 1L, 1L, pastStart, pastEnd, "출장", "서울");
         ReflectionTestUtils.setField(reservation, "id", 1L);
+        User user = User.create("test@test.com", "pass", "홍길동", Department.YOUTH, Role.USER);
+        ReflectionTestUtils.setField(user, "id", 1L);
         UpdateReservationRequest request = new UpdateReservationRequest(pastStart, pastEnd, "수정", null);
 
         given(reservationRepository.findById(1L)).willReturn(Optional.of(reservation));
+        given(userRepository.findById(1L)).willReturn(Optional.of(user));
 
         // when / then
         assertThatThrownBy(() -> reservationService.putReservation(1L, request, 1L))
                 .isInstanceOf(ReservationException.class);
-        then(reservationRepository).should(never()).existsByStartAtBeforeAndEndAtAfterAndResourceTypeAndResourceIdAndStatusAndIdNot(
+        then(reservationRepository).should(never()).existsConflictExcluding(
                 any(), any(), any(), any(), any(), any()
         );
     }
@@ -514,11 +538,15 @@ class ReservationServiceTest {
         // given — CANCELLED 상태
         LocalDateTime futureStart = LocalDateTime.now().plusDays(1);
         LocalDateTime futureEnd = futureStart.plusHours(8);
-        Reservation reservation = Reservation.create(ResourceType.VEHICLE, 1L, 1L, futureStart, futureEnd, "출장", "서울", ReservationStatus.CANCELLED);
+        Reservation reservation = Reservation.create(ResourceType.VEHICLE, 1L, 1L, futureStart, futureEnd, "출장", "서울");
+        reservation.changeStatus(ReservationStatus.CANCELLED);
         ReflectionTestUtils.setField(reservation, "id", 1L);
+        User user = User.create("test@test.com", "pass", "홍길동", Department.YOUTH, Role.USER);
+        ReflectionTestUtils.setField(user, "id", 1L);
         UpdateReservationRequest request = new UpdateReservationRequest(futureStart, futureEnd, "수정", null);
 
         given(reservationRepository.findById(1L)).willReturn(Optional.of(reservation));
+        given(userRepository.findById(1L)).willReturn(Optional.of(user));
 
         // when / then
         assertThatThrownBy(() -> reservationService.putReservation(1L, request, 1L))
@@ -530,7 +558,7 @@ class ReservationServiceTest {
         // given — userId=2가 userId=1의 예약을 수정 시도
         LocalDateTime futureStart = LocalDateTime.now().plusDays(1);
         LocalDateTime futureEnd = futureStart.plusHours(8);
-        Reservation reservation = Reservation.create(ResourceType.VEHICLE, 1L, 1L, futureStart, futureEnd, "출장", "서울", ReservationStatus.CONFIRMED);
+        Reservation reservation = Reservation.create(ResourceType.VEHICLE, 1L, 1L, futureStart, futureEnd, "출장", "서울");
         ReflectionTestUtils.setField(reservation, "id", 1L);
         User otherUser = User.create("other@test.com", "pass", "김철수", Department.FATHER, Role.USER);
         ReflectionTestUtils.setField(otherUser, "id", 2L);
@@ -542,7 +570,7 @@ class ReservationServiceTest {
         // when / then
         assertThatThrownBy(() -> reservationService.putReservation(1L, request, 2L))
                 .isInstanceOf(ReservationException.class);
-        then(reservationRepository).should(never()).existsByStartAtBeforeAndEndAtAfterAndResourceTypeAndResourceIdAndStatusAndIdNot(
+        then(reservationRepository).should(never()).existsConflictExcluding(
                 any(), any(), any(), any(), any(), any()
         );
     }
@@ -552,7 +580,7 @@ class ReservationServiceTest {
         // given — ADMIN이 다른 사용자 예약 수정
         LocalDateTime futureStart = LocalDateTime.now().plusDays(1);
         LocalDateTime futureEnd = futureStart.plusHours(8);
-        Reservation reservation = Reservation.create(ResourceType.VEHICLE, 1L, 1L, futureStart, futureEnd, "출장", "서울", ReservationStatus.CONFIRMED);
+        Reservation reservation = Reservation.create(ResourceType.VEHICLE, 1L, 1L, futureStart, futureEnd, "출장", "서울");
         ReflectionTestUtils.setField(reservation, "id", 1L);
         User admin = User.create("admin@test.com", "pass", "관리자", Department.FATHER, Role.ADMIN);
         ReflectionTestUtils.setField(admin, "id", 99L);
@@ -561,7 +589,7 @@ class ReservationServiceTest {
 
         given(reservationRepository.findById(1L)).willReturn(Optional.of(reservation));
         given(userRepository.findById(99L)).willReturn(Optional.of(admin));
-        given(reservationRepository.existsByStartAtBeforeAndEndAtAfterAndResourceTypeAndResourceIdAndStatusAndIdNot(
+        given(reservationRepository.existsConflictExcluding(
                 futureEnd, futureStart, ResourceType.VEHICLE, 1L, ReservationStatus.CONFIRMED, 1L
         )).willReturn(false);
         given(vehicleRepository.findById(1L)).willReturn(Optional.of(vehicle));
@@ -578,7 +606,7 @@ class ReservationServiceTest {
         // given
         LocalDateTime futureStart = LocalDateTime.now().plusDays(1);
         LocalDateTime futureEnd = futureStart.plusHours(8);
-        Reservation reservation = Reservation.create(ResourceType.VEHICLE, 1L, 1L, futureStart, futureEnd, "출장", "서울", ReservationStatus.CONFIRMED);
+        Reservation reservation = Reservation.create(ResourceType.VEHICLE, 1L, 1L, futureStart, futureEnd, "출장", "서울");
         ReflectionTestUtils.setField(reservation, "id", 1L);
         User user = User.create("test@test.com", "pass", "홍길동", Department.YOUTH, Role.USER);
         ReflectionTestUtils.setField(user, "id", 1L);
@@ -586,7 +614,7 @@ class ReservationServiceTest {
 
         given(reservationRepository.findById(1L)).willReturn(Optional.of(reservation));
         given(userRepository.findById(1L)).willReturn(Optional.of(user));
-        given(reservationRepository.existsByStartAtBeforeAndEndAtAfterAndResourceTypeAndResourceIdAndStatusAndIdNot(
+        given(reservationRepository.existsConflictExcluding(
                 futureEnd, futureStart, ResourceType.VEHICLE, 1L, ReservationStatus.CONFIRMED, 1L
         )).willReturn(true);
 
@@ -608,33 +636,12 @@ class ReservationServiceTest {
         then(userRepository).should(never()).findById(any());
     }
 
-    @Test
-    void getReservation_탈퇴유저_fromDeleted반환() {
-        // given
-        Reservation reservation = Reservation.create(ResourceType.VEHICLE, 1L, 999L, START, END, "출장", "서울", ReservationStatus.CONFIRMED);
-        ReflectionTestUtils.setField(reservation, "id", 1L);
-        Vehicle vehicle = Vehicle.create("소나타", "123가4567", 5, null);
-
-        given(reservationRepository.findById(1L)).willReturn(Optional.of(reservation));
-        given(userRepository.findById(999L)).willReturn(Optional.empty());
-        given(vehicleRepository.findById(1L)).willReturn(Optional.of(vehicle));
-
-        // when
-        ReservationResponse result = reservationService.getReservation(1L);
-
-        // then
-        assertThat(result.id()).isEqualTo(1L);
-        assertThat(result.userName()).isNull();
-        assertThat(result.userDepartment()).isNull();
-        assertThat(result.resourceName()).isEqualTo("소나타");
-    }
-
     // ==================== deleteReservation ====================
 
     @Test
     void deleteReservation_정상취소_성공() {
         // given
-        Reservation reservation = Reservation.create(ResourceType.VEHICLE, 1L, 1L, START, END, "출장", "서울", ReservationStatus.CONFIRMED);
+        Reservation reservation = Reservation.create(ResourceType.VEHICLE, 1L, 1L, START, END, "출장", "서울");
         ReflectionTestUtils.setField(reservation, "id", 1L);
         User user = User.create("test@test.com", "pass", "홍길동", Department.YOUTH, Role.USER);
         ReflectionTestUtils.setField(user, "id", 1L);
@@ -652,7 +659,7 @@ class ReservationServiceTest {
     @Test
     void deleteReservation_다른사용자_예외발생() {
         // given
-        Reservation reservation = Reservation.create(ResourceType.VEHICLE, 1L, 1L, START, END, "출장", "서울", ReservationStatus.CONFIRMED);
+        Reservation reservation = Reservation.create(ResourceType.VEHICLE, 1L, 1L, START, END, "출장", "서울");
         ReflectionTestUtils.setField(reservation, "id", 1L);
         User otherUser = User.create("other@test.com", "pass", "김철수", Department.FATHER, Role.USER);
         ReflectionTestUtils.setField(otherUser, "id", 2L);
@@ -669,7 +676,7 @@ class ReservationServiceTest {
     @Test
     void deleteReservation_ADMIN_다른사용자예약_취소성공() {
         // given
-        Reservation reservation = Reservation.create(ResourceType.VEHICLE, 1L, 1L, START, END, "출장", "서울", ReservationStatus.CONFIRMED);
+        Reservation reservation = Reservation.create(ResourceType.VEHICLE, 1L, 1L, START, END, "출장", "서울");
         ReflectionTestUtils.setField(reservation, "id", 1L);
         User admin = User.create("admin@test.com", "pass", "관리자", Department.FATHER, Role.ADMIN);
         ReflectionTestUtils.setField(admin, "id", 99L);
@@ -693,5 +700,23 @@ class ReservationServiceTest {
         assertThatThrownBy(() -> reservationService.deleteReservation(999L, 1L))
                 .isInstanceOf(ReservationException.class);
         then(userRepository).should(never()).findById(any());
+    }
+
+    @Test
+    void deleteReservation_이미취소된예약_예외발생() {
+        // given
+        Reservation reservation = Reservation.create(ResourceType.VEHICLE, 1L, 1L, START, END, "출장", "서울");
+        reservation.changeStatus(ReservationStatus.CANCELLED);
+        ReflectionTestUtils.setField(reservation, "id", 1L);
+        User user = User.create("test@test.com", "pass", "홍길동", Department.YOUTH, Role.USER);
+        ReflectionTestUtils.setField(user, "id", 1L);
+
+        given(reservationRepository.findById(1L)).willReturn(Optional.of(reservation));
+        given(userRepository.findById(1L)).willReturn(Optional.of(user));
+
+        // when / then
+        assertThatThrownBy(() -> reservationService.deleteReservation(1L, 1L))
+                .isInstanceOf(ReservationException.class);
+        assertThat(reservation.getStatus()).isEqualTo(ReservationStatus.CANCELLED);
     }
 }
