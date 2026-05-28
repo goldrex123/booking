@@ -241,4 +241,49 @@ class ReservationControllerTest {
                 .andExpect(status().isUnauthorized())
                 .andExpect(jsonPath("$.success").value(false));
     }
+
+    // ==================== GET /api/reservations/my ====================
+
+    @Test
+    void getMyReservations_인증된사용자_200반환() throws Exception {
+        // given
+        ReservationResponse response = new ReservationResponse(
+                1L, ResourceType.VEHICLE, 1L, "소나타",
+                1L, "홍길동", "YOUTH",
+                START, END, "출장", "서울",
+                ReservationStatus.CONFIRMED, Instant.now()
+        );
+        givenUserAuth();
+        given(reservationService.getMyReservations(1L)).willReturn(List.of(response));
+
+        // when / then
+        mockMvc.perform(get("/api/reservations/my")
+                        .header("Authorization", "Bearer user-token"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.success").value(true))
+                .andExpect(jsonPath("$.data.length()").value(1))
+                .andExpect(jsonPath("$.data[0].resourceName").value("소나타"))
+                .andExpect(jsonPath("$.data[0].userName").value("홍길동"));
+    }
+
+    @Test
+    void getMyReservations_예약없음_빈목록반환() throws Exception {
+        // given
+        givenUserAuth();
+        given(reservationService.getMyReservations(1L)).willReturn(List.of());
+
+        // when / then
+        mockMvc.perform(get("/api/reservations/my")
+                        .header("Authorization", "Bearer user-token"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.success").value(true))
+                .andExpect(jsonPath("$.data.length()").value(0));
+    }
+
+    @Test
+    void getMyReservations_인증없음_401반환() throws Exception {
+        mockMvc.perform(get("/api/reservations/my"))
+                .andExpect(status().isUnauthorized())
+                .andExpect(jsonPath("$.success").value(false));
+    }
 }

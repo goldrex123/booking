@@ -156,6 +156,56 @@ class ReservationServiceTest {
         assertThat(result.get(0).userDepartment()).isNull();
     }
 
+    // ==================== getMyReservations ====================
+
+    @Test
+    void getMyReservations_차량예약존재_목록반환() {
+        // given
+        User user = User.create("test@test.com", "pass", "홍길동", Department.YOUTH, Role.USER);
+        ReflectionTestUtils.setField(user, "id", 1L);
+        Reservation reservation = Reservation.create(ResourceType.VEHICLE, 1L, 1L, START, END, "출장", "서울", ReservationStatus.CONFIRMED);
+        Vehicle vehicle = Vehicle.create("소나타", "123가4567", 5, null);
+        ReflectionTestUtils.setField(vehicle, "id", 1L);
+
+        given(userRepository.findById(1L)).willReturn(Optional.of(user));
+        given(reservationRepository.findByUserIdOrderByCreatedAtDesc(1L)).willReturn(List.of(reservation));
+        given(vehicleRepository.findAllById(any())).willReturn(List.of(vehicle));
+
+        // when
+        List<ReservationResponse> result = reservationService.getMyReservations(1L);
+
+        // then
+        assertThat(result).hasSize(1);
+        assertThat(result.get(0).resourceType()).isEqualTo(ResourceType.VEHICLE);
+        assertThat(result.get(0).resourceName()).isEqualTo("소나타");
+        assertThat(result.get(0).userName()).isEqualTo("홍길동");
+    }
+
+    @Test
+    void getMyReservations_예약없음_빈목록반환() {
+        // given
+        User user = User.create("test@test.com", "pass", "홍길동", Department.YOUTH, Role.USER);
+        given(userRepository.findById(1L)).willReturn(Optional.of(user));
+        given(reservationRepository.findByUserIdOrderByCreatedAtDesc(1L)).willReturn(List.of());
+
+        // when
+        List<ReservationResponse> result = reservationService.getMyReservations(1L);
+
+        // then
+        assertThat(result).isEmpty();
+    }
+
+    @Test
+    void getMyReservations_존재하지않는유저_예외발생() {
+        // given
+        given(userRepository.findById(99L)).willReturn(Optional.empty());
+
+        // when / then
+        assertThatThrownBy(() -> reservationService.getMyReservations(99L))
+                .isInstanceOf(AuthException.class);
+        then(reservationRepository).should(never()).findByUserIdOrderByCreatedAtDesc(any());
+    }
+
     // ==================== postReservation ====================
 
     @Test
