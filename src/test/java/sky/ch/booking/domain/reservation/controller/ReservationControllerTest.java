@@ -28,9 +28,12 @@ import java.util.List;
 import sky.ch.booking.domain.reservation.dto.UpdateReservationRequest;
 
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.BDDMockito.given;
+import static org.mockito.BDDMockito.willDoNothing;
 import static org.mockito.BDDMockito.willThrow;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
@@ -435,6 +438,55 @@ class ReservationControllerTest {
         mockMvc.perform(put("/api/reservations/1")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(request)))
+                .andExpect(status().isUnauthorized())
+                .andExpect(jsonPath("$.success").value(false));
+    }
+
+    // ==================== DELETE /api/reservations/{id} ====================
+
+    @Test
+    void deleteReservation_정상요청_204반환() throws Exception {
+        // given
+        givenUserAuth();
+        willDoNothing().given(reservationService).deleteReservation(eq(1L), anyLong());
+
+        // when / then
+        mockMvc.perform(delete("/api/reservations/1")
+                        .header("Authorization", "Bearer user-token"))
+                .andExpect(status().isNoContent());
+    }
+
+    @Test
+    void deleteReservation_권한없음_403반환() throws Exception {
+        // given
+        givenUserAuth();
+        willThrow(new ReservationException(ReservationErrorCode.FORBIDDEN))
+                .given(reservationService).deleteReservation(eq(1L), anyLong());
+
+        // when / then
+        mockMvc.perform(delete("/api/reservations/1")
+                        .header("Authorization", "Bearer user-token"))
+                .andExpect(status().isForbidden())
+                .andExpect(jsonPath("$.success").value(false));
+    }
+
+    @Test
+    void deleteReservation_존재하지않는예약_404반환() throws Exception {
+        // given
+        givenUserAuth();
+        willThrow(new ReservationException(ReservationErrorCode.NOT_FOUND))
+                .given(reservationService).deleteReservation(eq(999L), anyLong());
+
+        // when / then
+        mockMvc.perform(delete("/api/reservations/999")
+                        .header("Authorization", "Bearer user-token"))
+                .andExpect(status().isNotFound())
+                .andExpect(jsonPath("$.success").value(false));
+    }
+
+    @Test
+    void deleteReservation_인증없음_401반환() throws Exception {
+        mockMvc.perform(delete("/api/reservations/1"))
                 .andExpect(status().isUnauthorized())
                 .andExpect(jsonPath("$.success").value(false));
     }

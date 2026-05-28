@@ -628,4 +628,70 @@ class ReservationServiceTest {
         assertThat(result.userDepartment()).isNull();
         assertThat(result.resourceName()).isEqualTo("소나타");
     }
+
+    // ==================== deleteReservation ====================
+
+    @Test
+    void deleteReservation_정상취소_성공() {
+        // given
+        Reservation reservation = Reservation.create(ResourceType.VEHICLE, 1L, 1L, START, END, "출장", "서울", ReservationStatus.CONFIRMED);
+        ReflectionTestUtils.setField(reservation, "id", 1L);
+        User user = User.create("test@test.com", "pass", "홍길동", Department.YOUTH, Role.USER);
+        ReflectionTestUtils.setField(user, "id", 1L);
+
+        given(reservationRepository.findById(1L)).willReturn(Optional.of(reservation));
+        given(userRepository.findById(1L)).willReturn(Optional.of(user));
+
+        // when
+        reservationService.deleteReservation(1L, 1L);
+
+        // then
+        assertThat(reservation.getStatus()).isEqualTo(ReservationStatus.CANCELLED);
+    }
+
+    @Test
+    void deleteReservation_다른사용자_예외발생() {
+        // given
+        Reservation reservation = Reservation.create(ResourceType.VEHICLE, 1L, 1L, START, END, "출장", "서울", ReservationStatus.CONFIRMED);
+        ReflectionTestUtils.setField(reservation, "id", 1L);
+        User otherUser = User.create("other@test.com", "pass", "김철수", Department.FATHER, Role.USER);
+        ReflectionTestUtils.setField(otherUser, "id", 2L);
+
+        given(reservationRepository.findById(1L)).willReturn(Optional.of(reservation));
+        given(userRepository.findById(2L)).willReturn(Optional.of(otherUser));
+
+        // when / then
+        assertThatThrownBy(() -> reservationService.deleteReservation(1L, 2L))
+                .isInstanceOf(ReservationException.class);
+        assertThat(reservation.getStatus()).isEqualTo(ReservationStatus.CONFIRMED);
+    }
+
+    @Test
+    void deleteReservation_ADMIN_다른사용자예약_취소성공() {
+        // given
+        Reservation reservation = Reservation.create(ResourceType.VEHICLE, 1L, 1L, START, END, "출장", "서울", ReservationStatus.CONFIRMED);
+        ReflectionTestUtils.setField(reservation, "id", 1L);
+        User admin = User.create("admin@test.com", "pass", "관리자", Department.FATHER, Role.ADMIN);
+        ReflectionTestUtils.setField(admin, "id", 99L);
+
+        given(reservationRepository.findById(1L)).willReturn(Optional.of(reservation));
+        given(userRepository.findById(99L)).willReturn(Optional.of(admin));
+
+        // when
+        reservationService.deleteReservation(1L, 99L);
+
+        // then
+        assertThat(reservation.getStatus()).isEqualTo(ReservationStatus.CANCELLED);
+    }
+
+    @Test
+    void deleteReservation_존재하지않는예약_예외발생() {
+        // given
+        given(reservationRepository.findById(999L)).willReturn(Optional.empty());
+
+        // when / then
+        assertThatThrownBy(() -> reservationService.deleteReservation(999L, 1L))
+                .isInstanceOf(ReservationException.class);
+        then(userRepository).should(never()).findById(any());
+    }
 }
