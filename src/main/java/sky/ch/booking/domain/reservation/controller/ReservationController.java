@@ -119,6 +119,28 @@ public class ReservationController {
         ));
     }
 
+    @Operation(
+            summary = "예약 상세 조회",
+            description = "예약 ID로 특정 예약의 상세 정보를 조회합니다.",
+            security = @SecurityRequirement(name = "JWT"),
+            responses = {
+                    @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "200", description = "조회 성공"),
+                    @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "401", description = "인증 필요",
+                            content = @Content(schema = @Schema(example = "{\"success\":false,\"data\":null,\"message\":\"인증이 필요합니다\"}"))),
+                    @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "404", description = "예약 없음",
+                            content = @Content(schema = @Schema(example = "{\"success\":false,\"data\":null,\"message\":\"예약 정보가 없습니다\"}")))
+            }
+    )
+    @GetMapping("/{id}")
+    public ResponseEntity<ApiResponse<ReservationResponse>> getReservation(
+            @Parameter(description = "예약 ID", required = true, example = "1")
+            @PathVariable Long id
+    ) {
+        return ResponseEntity.ok(
+                ApiResponse.ok(CommonCode.SUCCESS, reservationService.getReservation(id))
+        );
+    }
+
     private long getUserId(CustomUserDetails customUserDetails) {
         return Long.parseLong(customUserDetails.getUsername());
     }

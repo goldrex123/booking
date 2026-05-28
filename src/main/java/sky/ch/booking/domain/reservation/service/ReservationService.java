@@ -130,6 +130,33 @@ public class ReservationService {
                 .toList();
     }
 
+    public ReservationResponse getReservation(Long id) {
+        Reservation reservation = findReservation(id);
+        User user = userRepository.findById(reservation.getUserId()).orElse(null);
+        String resourceName = resolveResourceNameForRead(reservation.getResourceType(), reservation.getResourceId());
+
+        if (user == null) {
+            return ReservationResponse.fromDeleted(reservation, resourceName);
+        }
+        return ReservationResponse.from(reservation, resourceName, user);
+    }
+
+    private Reservation findReservation(Long id) {
+        return reservationRepository.findById(id)
+                .orElseThrow(() -> new ReservationException(ReservationErrorCode.NOT_FOUND));
+    }
+
+    private String resolveResourceNameForRead(ResourceType resourceType, Long resourceId) {
+        return switch (resourceType) {
+            case ROOM -> roomRepository.findById(resourceId)
+                    .map(Room::getName)
+                    .orElse("알 수 없음");
+            case VEHICLE -> vehicleRepository.findById(resourceId)
+                    .map(Vehicle::getModel)
+                    .orElse("알 수 없음");
+        };
+    }
+
     private String resolveResourceName(ResourceType resourceType, Long resourceId) {
         return switch (resourceType) {
             case ROOM -> {
