@@ -2,6 +2,7 @@ package sky.ch.booking.domain.reservation.service;
 
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Isolation;
 import org.springframework.transaction.annotation.Transactional;
 import sky.ch.booking.domain.auth.entity.Role;
 import sky.ch.booking.domain.auth.entity.User;
@@ -51,8 +52,8 @@ public class ReservationService {
         }
 
         List<Reservation> reservations = resourceType == null
-                ? reservationRepository.findByStartAtBeforeAndEndAtAfterOrderByStartAtAsc(endDate, startDate)
-                : reservationRepository.findByStartAtBeforeAndEndAtAfterAndResourceTypeOrderByStartAtAsc(endDate, startDate, resourceType);
+                ? reservationRepository.findConfirmedInRange(endDate, startDate)
+                : reservationRepository.findConfirmedInRangeByType(endDate, startDate, resourceType);
 
         if (reservations.isEmpty()) {
             return List.of();
@@ -76,7 +77,7 @@ public class ReservationService {
                 .toList();
     }
 
-    @Transactional
+    @Transactional(isolation = Isolation.READ_COMMITTED)
     public ReservationResponse postReservation(CreateReservationRequest request, Long userId) {
         if (!request.startAt().isBefore(request.endAt())) {
             throw new ReservationException(ReservationErrorCode.INVALID_DATE_RANGE);
@@ -87,10 +88,9 @@ public class ReservationService {
 
         User user = findUser(userId);
 
-        // 비관적 락으로 자원 행을 잠근 뒤 상태 검사 → 충돌 검사 → 저장을 하나의 트랜잭션 내에서 직렬화
         String resourceName = resolveResourceName(request.resourceType(), request.resourceId());
 
-        if (reservationRepository.existsByStartAtBeforeAndEndAtAfterAndResourceTypeAndResourceIdAndStatus(
+        if (reservationRepository.existsConflict(
                 request.endAt(),
                 request.startAt(),
                 request.resourceType(),
@@ -107,8 +107,7 @@ public class ReservationService {
                 request.startAt(),
                 request.endAt(),
                 request.purpose(),
-                request.destination(),
-                ReservationStatus.CONFIRMED
+                request.destination()
         );
         reservationRepository.save(reservation);
 
@@ -146,7 +145,11 @@ public class ReservationService {
     @Transactional
     public ReservationResponse putReservation(Long id, UpdateReservationRequest request, long userId) {
         Reservation reservation = findReservation(id);
+        User user = findUser(userId);
 
+        if (user.getRole() != Role.ADMIN && !reservation.getUserId().equals(userId)) {
+            throw new ReservationException(ReservationErrorCode.FORBIDDEN);
+        }
         if (!reservation.getStartAt().isAfter(LocalDateTime.now()) || reservation.getStatus() != ReservationStatus.CONFIRMED) {
             throw new ReservationException(ReservationErrorCode.NOT_MODIFIABLE);
         }
@@ -157,13 +160,7 @@ public class ReservationService {
             throw new ReservationException(ReservationErrorCode.DESTINATION_NOT_ALLOWED);
         }
 
-        User user = findUser(userId);
-
-        if (user.getRole() != Role.ADMIN && !reservation.getUserId().equals(userId)) {
-            throw new ReservationException(ReservationErrorCode.FORBIDDEN);
-        }
-
-        if (reservationRepository.existsByStartAtBeforeAndEndAtAfterAndResourceTypeAndResourceIdAndStatusAndIdNot(
+        if (reservationRepository.existsConflictExcluding(
                 request.endAt(), request.startAt(),
                 reservation.getResourceType(), reservation.getResourceId(),
                 ReservationStatus.CONFIRMED, id
@@ -180,11 +177,13 @@ public class ReservationService {
     @Transactional
     public void deleteReservation(Long id, Long userId) {
         Reservation reservation = findReservation(id);
-
         User user = findUser(userId);
 
         if (user.getRole() != Role.ADMIN && !reservation.getUserId().equals(userId)) {
             throw new ReservationException(ReservationErrorCode.FORBIDDEN);
+        }
+        if (reservation.getStatus() == ReservationStatus.CANCELLED) {
+            throw new ReservationException(ReservationErrorCode.ALREADY_CANCELLED);
         }
 
         reservation.changeStatus(ReservationStatus.CANCELLED);

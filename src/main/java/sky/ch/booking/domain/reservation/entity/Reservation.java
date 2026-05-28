@@ -48,7 +48,7 @@ public class Reservation extends BaseTimeEntity {
     private Long version;
 
     @Builder(access = AccessLevel.PRIVATE)
-    private Reservation(ResourceType resourceType, Long resourceId, Long userId, LocalDateTime startAt, LocalDateTime endAt, String purpose, String destination, ReservationStatus status) {
+    private Reservation(ResourceType resourceType, Long resourceId, Long userId, LocalDateTime startAt, LocalDateTime endAt, String purpose, String destination) {
         this.resourceType = resourceType;
         this.resourceId = resourceId;
         this.userId = userId;
@@ -56,10 +56,10 @@ public class Reservation extends BaseTimeEntity {
         this.endAt = endAt;
         this.purpose = purpose;
         this.destination = destination;
-        this.status = status;
+        this.status = ReservationStatus.CONFIRMED;
     }
 
-    public static Reservation create(ResourceType resourceType, Long resourceId, Long userId, LocalDateTime startAt, LocalDateTime endAt, String purpose, String destination, ReservationStatus status) {
+    public static Reservation create(ResourceType resourceType, Long resourceId, Long userId, LocalDateTime startAt, LocalDateTime endAt, String purpose, String destination) {
         return Reservation.builder()
                 .resourceType(resourceType)
                 .resourceId(resourceId)
@@ -68,7 +68,6 @@ public class Reservation extends BaseTimeEntity {
                 .endAt(endAt)
                 .purpose(purpose)
                 .destination(destination)
-                .status(status)
                 .build();
     }
 
