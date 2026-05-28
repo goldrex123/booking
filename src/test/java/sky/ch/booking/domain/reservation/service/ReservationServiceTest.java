@@ -11,6 +11,7 @@ import sky.ch.booking.domain.auth.entity.User;
 import sky.ch.booking.domain.auth.exception.AuthException;
 import sky.ch.booking.domain.auth.repository.UserRepository;
 import sky.ch.booking.domain.reservation.dto.CreateReservationRequest;
+import sky.ch.booking.domain.reservation.dto.UpdateReservationRequest;
 import sky.ch.booking.domain.reservation.dto.ReservationResponse;
 import sky.ch.booking.domain.reservation.entity.Reservation;
 import sky.ch.booking.domain.reservation.entity.ReservationStatus;
@@ -456,6 +457,153 @@ class ReservationServiceTest {
 
         // when / then
         assertThatThrownBy(() -> reservationService.getReservation(999L))
+                .isInstanceOf(ReservationException.class);
+        then(userRepository).should(never()).findById(any());
+    }
+
+    // ==================== putReservation ====================
+
+    @Test
+    void putReservation_정상수정_성공() {
+        // given
+        LocalDateTime futureStart = LocalDateTime.now().plusDays(1);
+        LocalDateTime futureEnd = futureStart.plusHours(8);
+        Reservation reservation = Reservation.create(ResourceType.VEHICLE, 1L, 1L, futureStart, futureEnd, "출장", "서울", ReservationStatus.CONFIRMED);
+        ReflectionTestUtils.setField(reservation, "id", 1L);
+        User user = User.create("test@test.com", "pass", "홍길동", Department.YOUTH, Role.USER);
+        ReflectionTestUtils.setField(user, "id", 1L);
+        Vehicle vehicle = Vehicle.create("소나타", "123가4567", 5, null);
+        UpdateReservationRequest request = new UpdateReservationRequest(futureStart, futureEnd, "수정된 출장", "부산");
+
+        given(reservationRepository.findById(1L)).willReturn(Optional.of(reservation));
+        given(userRepository.findById(1L)).willReturn(Optional.of(user));
+        given(reservationRepository.existsByStartAtBeforeAndEndAtAfterAndResourceTypeAndResourceIdAndStatusAndIdNot(
+                futureEnd, futureStart, ResourceType.VEHICLE, 1L, ReservationStatus.CONFIRMED, 1L
+        )).willReturn(false);
+        given(vehicleRepository.findById(1L)).willReturn(Optional.of(vehicle));
+
+        // when
+        ReservationResponse result = reservationService.putReservation(1L, request, 1L);
+
+        // then
+        assertThat(result.purpose()).isEqualTo("수정된 출장");
+        assertThat(result.destination()).isEqualTo("부산");
+    }
+
+    @Test
+    void putReservation_이미시작된예약_예외발생() {
+        // given — startAt이 과거
+        LocalDateTime pastStart = LocalDateTime.now().minusDays(1);
+        LocalDateTime pastEnd = LocalDateTime.now().plusHours(1);
+        Reservation reservation = Reservation.create(ResourceType.VEHICLE, 1L, 1L, pastStart, pastEnd, "출장", "서울", ReservationStatus.CONFIRMED);
+        ReflectionTestUtils.setField(reservation, "id", 1L);
+        UpdateReservationRequest request = new UpdateReservationRequest(pastStart, pastEnd, "수정", null);
+
+        given(reservationRepository.findById(1L)).willReturn(Optional.of(reservation));
+
+        // when / then
+        assertThatThrownBy(() -> reservationService.putReservation(1L, request, 1L))
+                .isInstanceOf(ReservationException.class);
+        then(reservationRepository).should(never()).existsByStartAtBeforeAndEndAtAfterAndResourceTypeAndResourceIdAndStatusAndIdNot(
+                any(), any(), any(), any(), any(), any()
+        );
+    }
+
+    @Test
+    void putReservation_취소된예약_예외발생() {
+        // given — CANCELLED 상태
+        LocalDateTime futureStart = LocalDateTime.now().plusDays(1);
+        LocalDateTime futureEnd = futureStart.plusHours(8);
+        Reservation reservation = Reservation.create(ResourceType.VEHICLE, 1L, 1L, futureStart, futureEnd, "출장", "서울", ReservationStatus.CANCELLED);
+        ReflectionTestUtils.setField(reservation, "id", 1L);
+        UpdateReservationRequest request = new UpdateReservationRequest(futureStart, futureEnd, "수정", null);
+
+        given(reservationRepository.findById(1L)).willReturn(Optional.of(reservation));
+
+        // when / then
+        assertThatThrownBy(() -> reservationService.putReservation(1L, request, 1L))
+                .isInstanceOf(ReservationException.class);
+    }
+
+    @Test
+    void putReservation_다른사용자_예외발생() {
+        // given — userId=2가 userId=1의 예약을 수정 시도
+        LocalDateTime futureStart = LocalDateTime.now().plusDays(1);
+        LocalDateTime futureEnd = futureStart.plusHours(8);
+        Reservation reservation = Reservation.create(ResourceType.VEHICLE, 1L, 1L, futureStart, futureEnd, "출장", "서울", ReservationStatus.CONFIRMED);
+        ReflectionTestUtils.setField(reservation, "id", 1L);
+        User otherUser = User.create("other@test.com", "pass", "김철수", Department.FATHER, Role.USER);
+        ReflectionTestUtils.setField(otherUser, "id", 2L);
+        UpdateReservationRequest request = new UpdateReservationRequest(futureStart, futureEnd, "수정", null);
+
+        given(reservationRepository.findById(1L)).willReturn(Optional.of(reservation));
+        given(userRepository.findById(2L)).willReturn(Optional.of(otherUser));
+
+        // when / then
+        assertThatThrownBy(() -> reservationService.putReservation(1L, request, 2L))
+                .isInstanceOf(ReservationException.class);
+        then(reservationRepository).should(never()).existsByStartAtBeforeAndEndAtAfterAndResourceTypeAndResourceIdAndStatusAndIdNot(
+                any(), any(), any(), any(), any(), any()
+        );
+    }
+
+    @Test
+    void putReservation_ADMIN_다른사용자예약_수정성공() {
+        // given — ADMIN이 다른 사용자 예약 수정
+        LocalDateTime futureStart = LocalDateTime.now().plusDays(1);
+        LocalDateTime futureEnd = futureStart.plusHours(8);
+        Reservation reservation = Reservation.create(ResourceType.VEHICLE, 1L, 1L, futureStart, futureEnd, "출장", "서울", ReservationStatus.CONFIRMED);
+        ReflectionTestUtils.setField(reservation, "id", 1L);
+        User admin = User.create("admin@test.com", "pass", "관리자", Department.FATHER, Role.ADMIN);
+        ReflectionTestUtils.setField(admin, "id", 99L);
+        Vehicle vehicle = Vehicle.create("소나타", "123가4567", 5, null);
+        UpdateReservationRequest request = new UpdateReservationRequest(futureStart, futureEnd, "수정된 목적", null);
+
+        given(reservationRepository.findById(1L)).willReturn(Optional.of(reservation));
+        given(userRepository.findById(99L)).willReturn(Optional.of(admin));
+        given(reservationRepository.existsByStartAtBeforeAndEndAtAfterAndResourceTypeAndResourceIdAndStatusAndIdNot(
+                futureEnd, futureStart, ResourceType.VEHICLE, 1L, ReservationStatus.CONFIRMED, 1L
+        )).willReturn(false);
+        given(vehicleRepository.findById(1L)).willReturn(Optional.of(vehicle));
+
+        // when
+        ReservationResponse result = reservationService.putReservation(1L, request, 99L);
+
+        // then
+        assertThat(result).isNotNull();
+    }
+
+    @Test
+    void putReservation_시간충돌_예외발생() {
+        // given
+        LocalDateTime futureStart = LocalDateTime.now().plusDays(1);
+        LocalDateTime futureEnd = futureStart.plusHours(8);
+        Reservation reservation = Reservation.create(ResourceType.VEHICLE, 1L, 1L, futureStart, futureEnd, "출장", "서울", ReservationStatus.CONFIRMED);
+        ReflectionTestUtils.setField(reservation, "id", 1L);
+        User user = User.create("test@test.com", "pass", "홍길동", Department.YOUTH, Role.USER);
+        ReflectionTestUtils.setField(user, "id", 1L);
+        UpdateReservationRequest request = new UpdateReservationRequest(futureStart, futureEnd, "출장", "서울");
+
+        given(reservationRepository.findById(1L)).willReturn(Optional.of(reservation));
+        given(userRepository.findById(1L)).willReturn(Optional.of(user));
+        given(reservationRepository.existsByStartAtBeforeAndEndAtAfterAndResourceTypeAndResourceIdAndStatusAndIdNot(
+                futureEnd, futureStart, ResourceType.VEHICLE, 1L, ReservationStatus.CONFIRMED, 1L
+        )).willReturn(true);
+
+        // when / then
+        assertThatThrownBy(() -> reservationService.putReservation(1L, request, 1L))
+                .isInstanceOf(ReservationException.class);
+        then(vehicleRepository).should(never()).findById(any());
+    }
+
+    @Test
+    void putReservation_존재하지않는예약_예외발생() {
+        // given
+        given(reservationRepository.findById(999L)).willReturn(Optional.empty());
+        UpdateReservationRequest request = new UpdateReservationRequest(START, END, "출장", "서울");
+
+        // when / then
+        assertThatThrownBy(() -> reservationService.putReservation(999L, request, 1L))
                 .isInstanceOf(ReservationException.class);
         then(userRepository).should(never()).findById(any());
     }

@@ -25,12 +25,15 @@ import java.time.Instant;
 import java.time.LocalDateTime;
 import java.util.List;
 
+import sky.ch.booking.domain.reservation.dto.UpdateReservationRequest;
+
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.BDDMockito.given;
 import static org.mockito.BDDMockito.willThrow;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
@@ -328,6 +331,110 @@ class ReservationControllerTest {
     @Test
     void getReservation_인증없음_401반환() throws Exception {
         mockMvc.perform(get("/api/reservations/1"))
+                .andExpect(status().isUnauthorized())
+                .andExpect(jsonPath("$.success").value(false));
+    }
+
+    // ==================== PUT /api/reservations/{id} ====================
+
+    @Test
+    void putReservation_정상요청_200반환() throws Exception {
+        // given
+        UpdateReservationRequest request = new UpdateReservationRequest(START, END, "수정된 출장", "부산");
+        ReservationResponse response = new ReservationResponse(
+                1L, ResourceType.VEHICLE, 1L, "소나타",
+                1L, "홍길동", "YOUTH",
+                START, END, "수정된 출장", "부산",
+                ReservationStatus.CONFIRMED, Instant.now()
+        );
+        givenUserAuth();
+        given(reservationService.putReservation(eq(1L), any(UpdateReservationRequest.class), eq(1L))).willReturn(response);
+
+        // when / then
+        mockMvc.perform(put("/api/reservations/1")
+                        .header("Authorization", "Bearer user-token")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(request)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.success").value(true))
+                .andExpect(jsonPath("$.data.purpose").value("수정된 출장"));
+    }
+
+    @Test
+    void putReservation_수정불가상태_400반환() throws Exception {
+        // given
+        UpdateReservationRequest request = new UpdateReservationRequest(START, END, "출장", "서울");
+        givenUserAuth();
+        willThrow(new ReservationException(ReservationErrorCode.NOT_MODIFIABLE))
+                .given(reservationService).putReservation(eq(1L), any(UpdateReservationRequest.class), eq(1L));
+
+        // when / then
+        mockMvc.perform(put("/api/reservations/1")
+                        .header("Authorization", "Bearer user-token")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(request)))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.success").value(false));
+    }
+
+    @Test
+    void putReservation_권한없음_403반환() throws Exception {
+        // given
+        UpdateReservationRequest request = new UpdateReservationRequest(START, END, "출장", "서울");
+        givenUserAuth();
+        willThrow(new ReservationException(ReservationErrorCode.FORBIDDEN))
+                .given(reservationService).putReservation(eq(1L), any(UpdateReservationRequest.class), eq(1L));
+
+        // when / then
+        mockMvc.perform(put("/api/reservations/1")
+                        .header("Authorization", "Bearer user-token")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(request)))
+                .andExpect(status().isForbidden())
+                .andExpect(jsonPath("$.success").value(false));
+    }
+
+    @Test
+    void putReservation_시간충돌_409반환() throws Exception {
+        // given
+        UpdateReservationRequest request = new UpdateReservationRequest(START, END, "출장", "서울");
+        givenUserAuth();
+        willThrow(new ReservationException(ReservationErrorCode.CONFLICT))
+                .given(reservationService).putReservation(eq(1L), any(UpdateReservationRequest.class), eq(1L));
+
+        // when / then
+        mockMvc.perform(put("/api/reservations/1")
+                        .header("Authorization", "Bearer user-token")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(request)))
+                .andExpect(status().isConflict())
+                .andExpect(jsonPath("$.success").value(false));
+    }
+
+    @Test
+    void putReservation_존재하지않는예약_404반환() throws Exception {
+        // given
+        UpdateReservationRequest request = new UpdateReservationRequest(START, END, "출장", "서울");
+        givenUserAuth();
+        willThrow(new ReservationException(ReservationErrorCode.NOT_FOUND))
+                .given(reservationService).putReservation(eq(999L), any(UpdateReservationRequest.class), eq(1L));
+
+        // when / then
+        mockMvc.perform(put("/api/reservations/999")
+                        .header("Authorization", "Bearer user-token")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(request)))
+                .andExpect(status().isNotFound())
+                .andExpect(jsonPath("$.success").value(false));
+    }
+
+    @Test
+    void putReservation_인증없음_401반환() throws Exception {
+        UpdateReservationRequest request = new UpdateReservationRequest(START, END, "출장", "서울");
+
+        mockMvc.perform(put("/api/reservations/1")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(request)))
                 .andExpect(status().isUnauthorized())
                 .andExpect(jsonPath("$.success").value(false));
     }
