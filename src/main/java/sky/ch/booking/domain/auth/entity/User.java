@@ -59,4 +59,9 @@ public class User extends BaseTimeEntity {
     public void updateRefreshToken(String refreshToken) {
         this.refreshToken = refreshToken;
     }
+
+    public void changeRole(Role role) {
+        if (role == null) throw new IllegalArgumentException("role must not be null");
+        this.role = role;
+    }
 }

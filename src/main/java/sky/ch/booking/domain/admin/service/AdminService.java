@@ -5,7 +5,11 @@ import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import sky.ch.booking.domain.admin.dto.UpdateUserRoleRequest;
 import sky.ch.booking.domain.admin.dto.UserResponse;
+import sky.ch.booking.domain.auth.entity.User;
+import sky.ch.booking.domain.auth.exception.AuthErrorCode;
+import sky.ch.booking.domain.auth.exception.AuthException;
 import sky.ch.booking.domain.auth.repository.UserRepository;
 
 @Service
@@ -18,5 +22,16 @@ public class AdminService {
     public Page<UserResponse> getUsers(Pageable pageable) {
         return userRepository.findAll(pageable)
                 .map(UserResponse::from);
+    }
+
+    @Transactional
+    public UserResponse patchRole(Long id, UpdateUserRoleRequest request) {
+        //사용자 검증
+        User user = userRepository.findById(id)
+                .orElseThrow(() -> new AuthException(AuthErrorCode.USER_NOT_FOUND));
+        //역할 변경
+        user.changeRole(request.role());
+
+        return UserResponse.from(user);
     }
 }
