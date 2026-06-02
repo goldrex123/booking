@@ -10,15 +10,19 @@ import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.test.util.ReflectionTestUtils;
+import sky.ch.booking.domain.admin.dto.UpdateUserRoleRequest;
 import sky.ch.booking.domain.admin.dto.UserResponse;
 import sky.ch.booking.domain.auth.entity.Department;
 import sky.ch.booking.domain.auth.entity.Role;
 import sky.ch.booking.domain.auth.entity.User;
+import sky.ch.booking.domain.auth.exception.AuthException;
 import sky.ch.booking.domain.auth.repository.UserRepository;
 
 import java.util.List;
+import java.util.Optional;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.BDDMockito.given;
 
 @ExtendWith(MockitoExtension.class)
@@ -88,5 +92,33 @@ class AdminServiceTest {
         // then
         assertThat(result.getContent().get(0).department()).isNull();
         assertThat(result.getContent().get(0).role()).isNull();
+    }
+
+    // ==================== patchRole ====================
+
+    @Test
+    void patchRole_유효한요청_역할변경후UserResponse반환() {
+        // given
+        User user = User.create("user@example.com", "encoded", "일반유저", Department.FATHER, Role.USER);
+        ReflectionTestUtils.setField(user, "id", 2L);
+        given(userRepository.findById(2L)).willReturn(Optional.of(user));
+
+        // when
+        UserResponse result = adminService.patchRole(2L, new UpdateUserRoleRequest(Role.ADMIN));
+
+        // then
+        assertThat(result.id()).isEqualTo(2L);
+        assertThat(result.role()).isEqualTo("ADMIN");
+        assertThat(result.email()).isEqualTo("user@example.com");
+    }
+
+    @Test
+    void patchRole_존재하지않는사용자_예외발생() {
+        // given
+        given(userRepository.findById(999L)).willReturn(Optional.empty());
+
+        // when / then
+        assertThatThrownBy(() -> adminService.patchRole(999L, new UpdateUserRoleRequest(Role.ADMIN)))
+                .isInstanceOf(AuthException.class);
     }
 }
