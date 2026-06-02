@@ -5,6 +5,10 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.test.util.ReflectionTestUtils;
+import sky.ch.booking.domain.reservation.entity.ReservationStatus;
+import sky.ch.booking.domain.reservation.entity.ResourceType;
+import sky.ch.booking.domain.reservation.repository.ReservationRepository;
 import sky.ch.booking.domain.room.dto.CreateRoomRequest;
 import sky.ch.booking.domain.room.dto.RoomResponse;
 import sky.ch.booking.domain.room.dto.UpdateRoomRequest;
@@ -14,14 +18,17 @@ import sky.ch.booking.domain.room.entity.RoomStatus;
 import sky.ch.booking.domain.room.exception.RoomException;
 import sky.ch.booking.domain.room.repository.RoomRepository;
 
+import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Optional;
+import java.util.Set;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.BDDMockito.given;
 import static org.mockito.BDDMockito.then;
+import static org.mockito.Mockito.never;
 
 @ExtendWith(MockitoExtension.class)
 class RoomServiceTest {
@@ -31,6 +38,12 @@ class RoomServiceTest {
 
     @Mock
     private RoomRepository roomRepository;
+
+    @Mock
+    private ReservationRepository reservationRepository;
+
+    private static final LocalDateTime START = LocalDateTime.of(2025, 6, 1, 9, 0);
+    private static final LocalDateTime END = LocalDateTime.of(2025, 6, 1, 18, 0);
 
     // ==================== getAllRooms ====================
 
@@ -165,5 +178,86 @@ class RoomServiceTest {
         // when / then
         assertThatThrownBy(() -> roomService.patchRoomStatus(id, request))
                 .isInstanceOf(RoomException.class);
+    }
+
+    // ==================== getAvailableRoom ====================
+
+    @Test
+    void getAvailableRoom_예약없음_ACTIVE부속실전체반환() {
+        // given
+        Room r1 = Room.create("회의실 A", "3층 301호", 8, null);
+        Room r2 = Room.create("세미나실", "2층 201호", 20, null);
+        ReflectionTestUtils.setField(r1, "id", 1L);
+        ReflectionTestUtils.setField(r2, "id", 2L);
+
+        given(roomRepository.findByStatus(RoomStatus.ACTIVE)).willReturn(List.of(r1, r2));
+        given(reservationRepository.findConflictingResourceIds(END, START, ResourceType.ROOM, ReservationStatus.CONFIRMED, null))
+                .willReturn(Set.of());
+
+        // when
+        List<RoomResponse> result = roomService.getAvailableRoom(START, END, null);
+
+        // then
+        assertThat(result).hasSize(2);
+    }
+
+    @Test
+    void getAvailableRoom_예약된부속실제외_가용부속실만반환() {
+        // given
+        Room r1 = Room.create("회의실 A", "3층 301호", 8, null);
+        Room r2 = Room.create("세미나실", "2층 201호", 20, null);
+        ReflectionTestUtils.setField(r1, "id", 1L);
+        ReflectionTestUtils.setField(r2, "id", 2L);
+
+        given(roomRepository.findByStatus(RoomStatus.ACTIVE)).willReturn(List.of(r1, r2));
+        given(reservationRepository.findConflictingResourceIds(END, START, ResourceType.ROOM, ReservationStatus.CONFIRMED, null))
+                .willReturn(Set.of(1L));
+
+        // when
+        List<RoomResponse> result = roomService.getAvailableRoom(START, END, null);
+
+        // then
+        assertThat(result).hasSize(1);
+        assertThat(result.get(0).name()).isEqualTo("세미나실");
+    }
+
+    @Test
+    void getAvailableRoom_excludeId지정_해당예약부속실포함() {
+        // given — 부속실 1이 예약되어 있지만 excludeId=3으로 제외 처리
+        Room r1 = Room.create("회의실 A", "3층 301호", 8, null);
+        ReflectionTestUtils.setField(r1, "id", 1L);
+
+        given(roomRepository.findByStatus(RoomStatus.ACTIVE)).willReturn(List.of(r1));
+        given(reservationRepository.findConflictingResourceIds(END, START, ResourceType.ROOM, ReservationStatus.CONFIRMED, 3L))
+                .willReturn(Set.of());
+
+        // when
+        List<RoomResponse> result = roomService.getAvailableRoom(START, END, 3L);
+
+        // then
+        assertThat(result).hasSize(1);
+        assertThat(result.get(0).name()).isEqualTo("회의실 A");
+    }
+
+    @Test
+    void getAvailableRoom_종료일이시작일이전_예외발생() {
+        // when / then
+        assertThatThrownBy(() -> roomService.getAvailableRoom(END, START, null))
+                .isInstanceOf(RoomException.class);
+        then(roomRepository).should(never()).findByStatus(any());
+    }
+
+    @Test
+    void getAvailableRoom_ACTIVE부속실없음_빈목록반환() {
+        // given
+        given(roomRepository.findByStatus(RoomStatus.ACTIVE)).willReturn(List.of());
+        given(reservationRepository.findConflictingResourceIds(END, START, ResourceType.ROOM, ReservationStatus.CONFIRMED, null))
+                .willReturn(Set.of());
+
+        // when
+        List<RoomResponse> result = roomService.getAvailableRoom(START, END, null);
+
+        // then
+        assertThat(result).isEmpty();
     }
 }
