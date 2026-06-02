@@ -71,6 +71,7 @@ CLAUDE.md
 .env
 *.env
 .env.*
+!.env.example
 docs/**
 
 **/application-dev.yaml
