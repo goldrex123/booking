@@ -10,7 +10,8 @@ import sky.ch.booking.common.exception.BaseCode;
 public enum RoomErrorCode implements BaseCode {
 
     NOT_FOUND_ROOM(HttpStatus.NOT_FOUND, "RM000", "등록된 부속실 정보가 없습니다"),
-    NOT_AVAILABLE_ROOM(HttpStatus.CONFLICT, "RM001", "현재 사용 불가능한 부속실입니다")
+    NOT_AVAILABLE_ROOM(HttpStatus.CONFLICT, "RM001", "현재 사용 불가능한 부속실입니다"),
+    INVALID_DATE_RANGE(HttpStatus.BAD_REQUEST, "RM002", "시작일은 종료일보다 이전이어야 합니다")
     ;
 
     private final HttpStatus httpStatus;
