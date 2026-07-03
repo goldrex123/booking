@@ -1,6 +1,7 @@
 package sky.ch.booking.domain.vehicle.service;
 
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import sky.ch.booking.domain.reservation.entity.ReservationStatus;
@@ -20,6 +21,7 @@ import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Set;
 
+@Slf4j
 @Service
 @RequiredArgsConstructor
 @Transactional(readOnly = true)
@@ -47,6 +49,8 @@ public class VehicleService {
         );
         vehicleRepository.save(vehicle);
 
+        log.info("차량 생성 - vehicleId: {}, model: {}", vehicle.getId(), vehicle.getModel());
+
         return VehicleResponse.from(vehicle);
     }
 
@@ -55,6 +59,8 @@ public class VehicleService {
         Vehicle vehicle = findVehicle(id);
         vehicle.update(request.model(), request.seats(), request.note());
 
+        log.info("차량 수정 - vehicleId: {}", id);
+
         return VehicleResponse.from(vehicle);
     }
 
@@ -62,6 +68,8 @@ public class VehicleService {
     public VehicleResponse patchVehicleStatus(Long id, UpdateVehicleStatusRequest request) {
         Vehicle vehicle = findVehicle(id);
         vehicle.changeStatus(request.status());
+
+        log.info("차량 상태 변경 - vehicleId: {}, status: {}", id, request.status());
 
         return VehicleResponse.from(vehicle);
     }

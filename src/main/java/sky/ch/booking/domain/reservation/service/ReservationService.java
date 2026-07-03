@@ -1,6 +1,7 @@
 package sky.ch.booking.domain.reservation.service;
 
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Isolation;
 import org.springframework.transaction.annotation.Transactional;
@@ -36,6 +37,7 @@ import java.util.Set;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 
+@Slf4j
 @Service
 @Transactional(readOnly = true)
 @RequiredArgsConstructor
@@ -111,6 +113,9 @@ public class ReservationService {
         );
         reservationRepository.save(reservation);
 
+        log.info("예약 생성 - reservationId: {}, userId: {}, resourceType: {}, resourceId: {}",
+                reservation.getId(), userId, request.resourceType(), request.resourceId());
+
         return ReservationResponse.from(reservation, resourceName, user);
     }
 
@@ -171,6 +176,8 @@ public class ReservationService {
         String resourceName = resolveResourceNameForRead(reservation.getResourceType(), reservation.getResourceId());
         reservation.update(request.startAt(), request.endAt(), request.purpose(), request.destination());
 
+        log.info("예약 수정 - reservationId: {}, userId: {}", id, userId);
+
         return ReservationResponse.from(reservation, resourceName, user);
     }
 
@@ -187,6 +194,8 @@ public class ReservationService {
         }
 
         reservation.changeStatus(ReservationStatus.CANCELLED);
+
+        log.info("예약 취소 - reservationId: {}, userId: {}", id, userId);
     }
 
     private Reservation findReservation(Long id) {

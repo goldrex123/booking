@@ -1,6 +1,7 @@
 package sky.ch.booking.domain.auth.service;
 
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -15,6 +16,7 @@ import sky.ch.booking.domain.auth.exception.AuthException;
 import sky.ch.booking.domain.auth.repository.UserRepository;
 import sky.ch.booking.security.jwt.JwtProvider;
 
+@Slf4j
 @Service
 @Transactional(readOnly = true)
 @RequiredArgsConstructor
@@ -39,6 +41,8 @@ public class AuthService {
                 request.department(),
                 Role.USER
         ));
+
+        log.info("회원가입 완료 - email: {}", request.email());
     }
 
     @Transactional
@@ -55,6 +59,8 @@ public class AuthService {
 
         user.updateRefreshToken(refreshToken);
 
+        log.info("로그인 성공 - userId: {}", user.getId());
+
         return new LoginResult(accessToken, refreshToken, jwtProvider.getRefreshTokenExpiry(), UserInfo.from(user));
     }
 
@@ -62,6 +68,8 @@ public class AuthService {
     public void logout(Long userId) {
         User user = findUserById(userId);
         user.updateRefreshToken(null);
+
+        log.info("로그아웃 - userId: {}", userId);
     }
 
     @Transactional
@@ -81,6 +89,8 @@ public class AuthService {
         String newAccessToken = jwtProvider.generateAccessToken(userId, user.getRole().name());
         String newRefreshToken = jwtProvider.generateRefreshToken(userId);
         user.updateRefreshToken(newRefreshToken);
+
+        log.info("토큰 재발급 - userId: {}", userId);
 
         return new LoginResult(newAccessToken, newRefreshToken, jwtProvider.getRefreshTokenExpiry(), UserInfo.from(user));
     }

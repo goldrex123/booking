@@ -1,6 +1,7 @@
 package sky.ch.booking.domain.room.service;
 
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import sky.ch.booking.domain.reservation.entity.ReservationStatus;
@@ -20,6 +21,7 @@ import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Set;
 
+@Slf4j
 @Service
 @RequiredArgsConstructor
 @Transactional(readOnly = true)
@@ -43,6 +45,9 @@ public class RoomService {
                 request.description()
         );
         roomRepository.save(room);
+
+        log.info("회의실 생성 - roomId: {}, name: {}", room.getId(), room.getName());
+
         return RoomResponse.from(room);
     }
 
@@ -50,6 +55,9 @@ public class RoomService {
     public RoomResponse putRoom(Long id, UpdateRoomRequest request) {
         Room room = findRoom(id);
         room.update(request.name(), request.location(), request.capacity(), request.description());
+
+        log.info("회의실 수정 - roomId: {}", id);
+
         return RoomResponse.from(room);
     }
 
@@ -57,6 +65,9 @@ public class RoomService {
     public RoomResponse patchRoomStatus(Long id, UpdateRoomStatusRequest request) {
         Room room = findRoom(id);
         room.changeStatus(request.status());
+
+        log.info("회의실 상태 변경 - roomId: {}, status: {}", id, request.status());
+
         return RoomResponse.from(room);
     }
 
