@@ -76,3 +76,5 @@ docs/**
 
 **/application-dev.yaml
 **/application-prod.yaml
+
+/loadtest/**
