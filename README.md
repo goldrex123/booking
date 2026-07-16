@@ -129,6 +129,53 @@ JWT_SECRET=<strong-secret-32자-이상>
 SPRING_PROFILES_ACTIVE=prod
 ```
 
+### 2-1. `application-prod.yaml` 배치
+
+`.gitignore`에 의해 `application-prod.yaml`은 git에 포함되지 않으므로, `git clone`만으로는 서버에 존재하지 않습니다.
+로컬 개발 환경의 `src/main/resources/application-prod.yaml` 파일을 서버의 같은 경로로 복사해야 합니다.
+
+**로컬에서 실행:**
+```bash
+scp src/main/resources/application-prod.yaml user@home-server:/path/to/booking/src/main/resources/
+```
+
+**서버에 `application-prod.yaml` 파일 생성:** (로컬에서 복사하지 않는 경우)
+
+로컬의 `src/main/resources/application-prod.yaml` 파일 내용은 다음과 같습니다. 서버에 같은 경로(`src/main/resources/application-prod.yaml`)로 직접 생성하세요.
+
+```yaml
+spring:
+  datasource:
+    url: ${DATABASE_URL}
+    username: ${MYSQL_USER}
+    password: ${MYSQL_PASSWORD}
+    driver-class-name: com.mysql.cj.jdbc.Driver
+
+  jpa:
+    hibernate:
+      ddl-auto: validate
+    show-sql: false
+    properties:
+      hibernate:
+        dialect: org.hibernate.dialect.MySQLDialect
+        default_batch_fetch_size: 100
+    open-in-view: false
+
+jwt:
+  secret: ${JWT_SECRET}
+
+springdoc:
+  api-docs:
+    enabled: false
+  swagger-ui:
+    enabled: false
+
+logging:
+  level:
+    root: WARN
+    sky.ch.booking: INFO
+```
+
 ### 3. 최초 스키마 생성
 
 `application-prod.yaml`은 `ddl-auto: validate`이므로 스키마가 없는 상태로 최초 기동하면 실패합니다.
