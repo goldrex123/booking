@@ -94,6 +94,64 @@ http://localhost:8080/swagger-ui.html
 | `PUT` | `/api/reservations/{id}` | 예약 수정 | ✓ | 본인/ADMIN |
 | `DELETE` | `/api/reservations/{id}` | 예약 취소 | ✓ | 본인/ADMIN |
 
+## 홈서버 배포
+
+### 사전 준비
+
+홈서버에 다음이 이미 Docker Compose로 떠 있어야 합니다 (compose 프로젝트 `sky`, 네트워크 `sky_default`):
+- `mysql-db` (MySQL 8.0)
+- `nginx-proxy-manager` (리버스 프록시, HTTPS)
+
+### 1. DB 최초 설정 (1회성)
+
+`mysql-db` 컨테이너에 이 프로젝트 전용 DB·계정을 생성합니다.
+
+```bash
+docker exec -it mysql-db mysql -uroot -p
+```
+
+```sql
+CREATE DATABASE booking CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
+CREATE USER 'booking'@'%' IDENTIFIED BY '<strong-password>';
+GRANT ALL PRIVILEGES ON booking.* TO 'booking'@'%';
+FLUSH PRIVILEGES;
+```
+
+### 2. 서버에 `.env` 생성
+
+프로젝트 루트에 아래 내용으로 `.env` 파일을 직접 생성합니다 (git에 커밋되지 않음).
+
+```
+DATABASE_URL=jdbc:mysql://mysql-db:3306/booking?useSSL=false&serverTimezone=Asia/Seoul&characterEncoding=UTF-8
+MYSQL_USER=booking
+MYSQL_PASSWORD=<strong-password>
+JWT_SECRET=<strong-secret-32자-이상>
+SPRING_PROFILES_ACTIVE=prod
+```
+
+### 3. 최초 스키마 생성
+
+`application-prod.yaml`은 `ddl-auto: validate`이므로 스키마가 없는 상태로 최초 기동하면 실패합니다.
+최초 1회는 `SPRING_PROFILES_ACTIVE=dev`로 임시 기동해 스키마를 생성한 뒤(`ddl-auto: update`), 이후 `.env`의
+`SPRING_PROFILES_ACTIVE=prod`로 되돌려 재기동하세요.
+
+### 4. 배포
+
+```bash
+git clone https://github.com/goldrex123/booking.git
+cd booking
+# .env 파일 생성 (위 2번 참고)
+./deploy.sh
+```
+
+### 5. NPM 연동
+
+Nginx Proxy Manager 웹 UI(포트 81)에서 Proxy Host를 추가합니다.
+- Domain: 소유 도메인
+- Forward Hostname: `booking-app`
+- Forward Port: `8080`
+- SSL 탭에서 Let's Encrypt 인증서 발급 + Force SSL 활성화
+
 ## 프로젝트 구조
 
 ```
