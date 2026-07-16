@@ -102,7 +102,14 @@ http://localhost:8080/swagger-ui.html
 - `mysql-db` (MySQL 8.0)
 - `nginx-proxy-manager` (리버스 프록시, HTTPS)
 
-### 1. DB 최초 설정 (1회성)
+### 1. 저장소 클론
+
+```bash
+git clone https://github.com/goldrex123/booking.git
+cd booking
+```
+
+### 2. DB 최초 설정 (1회성)
 
 `mysql-db` 컨테이너에 이 프로젝트 전용 DB·계정을 생성합니다.
 
@@ -117,7 +124,7 @@ GRANT ALL PRIVILEGES ON booking.* TO 'booking'@'%';
 FLUSH PRIVILEGES;
 ```
 
-### 2. 서버에 `.env` 생성
+### 3. 서버에 `.env` 생성
 
 프로젝트 루트에 아래 내용으로 `.env` 파일을 직접 생성합니다 (git에 커밋되지 않음).
 
@@ -129,7 +136,7 @@ JWT_SECRET=<strong-secret-32자-이상>
 SPRING_PROFILES_ACTIVE=prod
 ```
 
-### 2-1. `application-prod.yaml` 배치
+### 3-1. `application-prod.yaml` 배치
 
 `.gitignore`에 의해 `application-prod.yaml`은 git에 포함되지 않으므로, `git clone`만으로는 서버에 존재하지 않습니다.
 로컬 개발 환경의 `src/main/resources/application-prod.yaml` 파일을 서버의 같은 경로로 복사해야 합니다.
@@ -176,22 +183,42 @@ logging:
     sky.ch.booking: INFO
 ```
 
-### 3. 최초 스키마 생성
+### 4. 최초 스키마 생성
 
 `application-prod.yaml`은 `ddl-auto: validate`이므로 스키마가 없는 상태로 최초 기동하면 실패합니다.
-최초 1회는 `SPRING_PROFILES_ACTIVE=dev`로 임시 기동해 스키마를 생성한 뒤(`ddl-auto: update`), 이후 `.env`의
-`SPRING_PROFILES_ACTIVE=prod`로 되돌려 재기동하세요.
+`application-dev.yaml`은 git에 포함되지 않으며 서버에 별도로 배치하지 않으므로, `dev` 프로파일로 전환하는 방식은
+사용하지 않습니다(datasource 설정이 없어 classpath의 H2로 폴백되어 엉뚱한 곳에 스키마가 생성됩니다).
+대신 `prod` 프로파일을 유지한 채 환경변수로 `ddl-auto`만 한 번 덮어씁니다.
 
-### 4. 배포
+`.env` 파일에 아래 줄을 임시로 추가합니다.
+
+```
+SPRING_JPA_HIBERNATE_DDL_AUTO=update
+```
+
+이후 한 번 기동해 스키마를 생성합니다.
 
 ```bash
-git clone https://github.com/goldrex123/booking.git
-cd booking
-# .env 파일 생성 (위 2번 참고)
+./deploy.sh
+# 또는: docker compose -f docker-compose.prod.yml up -d
+```
+
+테이블이 생성됐는지 확인합니다.
+
+```bash
+docker exec -it mysql-db mysql -ubooking -p booking -e "SHOW TABLES;"
+```
+
+확인 후 `.env`에서 `SPRING_JPA_HIBERNATE_DDL_AUTO=update` 줄을 제거하고 컨테이너를 재기동하면,
+이후 모든 기동에서 `application-prod.yaml`의 `ddl-auto: validate`가 적용됩니다.
+
+### 5. 배포
+
+```bash
 ./deploy.sh
 ```
 
-### 5. NPM 연동
+### 6. NPM 연동
 
 Nginx Proxy Manager 웹 UI(포트 81)에서 Proxy Host를 추가합니다.
 - Domain: 소유 도메인

@@ -48,3 +48,9 @@ dependencies {
 tasks.named('test') {
 	useJUnitPlatform()
 }
+
+// Docker 빌드 시 COPY 글롭(*.jar)이 boot jar와 plain jar 두 개를 매칭하지 않도록
+// plain jar 생성을 비활성화한다.
+tasks.named('jar') {
+	enabled = false
+}
