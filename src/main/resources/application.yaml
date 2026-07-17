@@ -9,7 +9,7 @@ spring:
 
 app:
   cors:
-    allowed-origins: https://booking-fe-eight.vercel.app
+    allowed-origins: ${ALLOWED_ORIGINS:http://localhost:3000}
 
 jwt:
   access-token-expiry: 1_800_000    # 30분
