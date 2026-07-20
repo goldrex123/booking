@@ -16,6 +16,7 @@ import org.springframework.security.web.authentication.UsernamePasswordAuthentic
 import org.springframework.web.cors.CorsConfiguration;
 import org.springframework.web.cors.CorsConfigurationSource;
 import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
+import sky.ch.booking.common.filter.RequestLoggingFilter;
 import sky.ch.booking.security.handler.CustomAccessDeniedHandler;
 import sky.ch.booking.security.handler.CustomAuthenticationEntryPoint;
 import sky.ch.booking.security.jwt.JwtAuthenticationFilter;
@@ -58,6 +59,7 @@ public class SecurityConfig {
                         .accessDeniedHandler(accessDeniedHandler)
                 )
                 .addFilterBefore(new JwtAuthenticationFilter(jwtProvider), UsernamePasswordAuthenticationFilter.class)
+                .addFilterBefore(new RequestLoggingFilter(), JwtAuthenticationFilter.class)
                 .build();
     }
 
