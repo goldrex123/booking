@@ -39,4 +39,27 @@ class RequestLoggingFilterTest {
         // then
         assertThat(MDC.getCopyOfContextMap()).isNullOrEmpty();
     }
+
+    @Test
+    void doFilter_체인실행도중_MDC에requestId가설정됨() throws Exception {
+        // given
+        MockHttpServletRequest request = new MockHttpServletRequest("GET", "/api/rooms");
+        MockHttpServletResponse response = new MockHttpServletResponse();
+        String[] capturedRequestId = new String[1];
+        MockFilterChain chain = new MockFilterChain() {
+            @Override
+            public void doFilter(jakarta.servlet.ServletRequest servletRequest, jakarta.servlet.ServletResponse servletResponse)
+                    throws java.io.IOException, jakarta.servlet.ServletException {
+                capturedRequestId[0] = MDC.get("requestId");
+                super.doFilter(servletRequest, servletResponse);
+            }
+        };
+
+        // when
+        filter.doFilter(request, response, chain);
+
+        // then
+        assertThat(capturedRequestId[0]).isNotNull();
+        assertThat(capturedRequestId[0]).isEqualTo(response.getHeader("X-Request-Id"));
+    }
 }

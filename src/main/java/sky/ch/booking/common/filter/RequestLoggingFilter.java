@@ -27,14 +27,14 @@ public class RequestLoggingFilter extends OncePerRequestFilter {
         MDC.put(REQUEST_ID_MDC_KEY, requestId);
         response.setHeader(REQUEST_ID_HEADER, requestId);
 
-        long startTime = System.currentTimeMillis();
+        long startTime = System.nanoTime();
         try {
             filterChain.doFilter(request, response);
         } finally {
-            long duration = System.currentTimeMillis() - startTime;
+            long duration = (System.nanoTime() - startTime) / 1_000_000;
             log.info("{} {} - status: {}, duration: {}ms",
                     request.getMethod(), request.getRequestURI(), response.getStatus(), duration);
-            MDC.clear();
+            MDC.remove(REQUEST_ID_MDC_KEY);
         }
     }
 }
