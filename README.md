@@ -58,6 +58,22 @@ docker compose up -d
 | `MYSQL_ROOT_PASSWORD` | MySQL root 비밀번호 (Docker 전용) | ✓ |
 | `MYSQL_DATABASE` | 생성할 DB명 (Docker 전용) | ✓ |
 | `JWT_SECRET` | JWT 서명 키 (32자 이상) | ✓ |
+| `GRAFANA_ADMIN_PASSWORD` | Grafana 관리자 비밀번호 (모니터링 스택 전용) | ✓ |
+
+## 로그 모니터링
+
+Grafana + Loki + Promtail로 요청량/상태코드 분포, 에러율, 응답시간을 대시보드에서 확인할 수 있습니다.
+
+```bash
+# 로그 모니터링 스택 기동 (운영 환경 기준)
+docker compose -f docker-compose.prod.yml -f docker-compose.monitoring.yml up -d
+
+# Grafana 접속 (외부에 노출되지 않으므로 SSH 포트포워딩 또는 내부망에서 접속)
+# ssh -L 3000:localhost:3000 <홈서버>
+http://localhost:3000
+```
+
+로그는 Loki에 7일간 보관 후 자동 삭제됩니다.
 
 ## API 문서
 
