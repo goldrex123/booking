@@ -32,6 +32,9 @@ dependencies {
 	// Springdoc OpenAPI (Swagger UI)
 	implementation 'org.springdoc:springdoc-openapi-starter-webmvc-ui:3.0.1'
 
+	// JSON 로깅 (Logback + Jackson 3, Spring Boot 4와 호환되는 9.0 이상 사용)
+	implementation 'net.logstash.logback:logstash-logback-encoder:9.0'
+
 	compileOnly 'org.projectlombok:lombok'
 	runtimeOnly 'com.h2database:h2'
 	runtimeOnly 'com.mysql:mysql-connector-j'
