@@ -2,6 +2,8 @@ services:
   app:
     build: .
     container_name: booking-app
+    environment:
+      - SPRING_PROFILES_ACTIVE=prod
     env_file:
       - .env
     restart: unless-stopped
