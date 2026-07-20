@@ -5,6 +5,7 @@ import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import lombok.extern.slf4j.Slf4j;
+import net.logstash.logback.argument.StructuredArguments;
 import org.slf4j.MDC;
 import org.springframework.web.filter.OncePerRequestFilter;
 
@@ -33,7 +34,10 @@ public class RequestLoggingFilter extends OncePerRequestFilter {
         } finally {
             long duration = (System.nanoTime() - startTime) / 1_000_000;
             log.info("{} {} - status: {}, duration: {}ms",
-                    request.getMethod(), request.getRequestURI(), response.getStatus(), duration);
+                    StructuredArguments.value("method", request.getMethod()),
+                    StructuredArguments.value("uri", request.getRequestURI()),
+                    StructuredArguments.value("status", response.getStatus()),
+                    StructuredArguments.value("duration_ms", duration));
             MDC.remove(REQUEST_ID_MDC_KEY);
         }
     }
