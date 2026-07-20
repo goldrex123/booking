@@ -23,6 +23,8 @@ public class AdminService {
     private final UserRepository userRepository;
 
     public Page<UserResponse> getUsers(Pageable pageable) {
+        log.debug("사용자 목록 조회 - page: {}, size: {}", pageable.getPageNumber(), pageable.getPageSize());
+
         return userRepository.findAll(pageable)
                 .map(UserResponse::from);
     }

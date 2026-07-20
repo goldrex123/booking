@@ -32,6 +32,8 @@ public class VehicleService {
 
 
     public List<VehicleResponse> getAllVehicles() {
+        log.debug("차량 목록 조회");
+
         return vehicleRepository.findAll().stream()
                 .map(VehicleResponse::from)
                 .toList();
@@ -75,6 +77,8 @@ public class VehicleService {
     }
 
     public List<VehicleResponse> getAvailableVehicles(LocalDateTime startAt, LocalDateTime endAt, Long excludeId) {
+        log.debug("예약 가능 차량 조회 - startAt: {}, endAt: {}, excludeId: {}", startAt, endAt, excludeId);
+
         if (!startAt.isBefore(endAt)) {
             throw new VehicleException(VehicleErrorCode.INVALID_DATE_RANGE);
         }

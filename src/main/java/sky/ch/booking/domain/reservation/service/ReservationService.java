@@ -49,6 +49,8 @@ public class ReservationService {
     private final RoomRepository roomRepository;
 
     public List<ReservationResponse> getReservations(ResourceType resourceType, LocalDateTime startDate, LocalDateTime endDate) {
+        log.debug("예약 목록 조회 - resourceType: {}, startDate: {}, endDate: {}", resourceType, startDate, endDate);
+
         if (!startDate.isBefore(endDate)) {
             throw new ReservationException(ReservationErrorCode.INVALID_DATE_RANGE);
         }
@@ -120,6 +122,8 @@ public class ReservationService {
     }
 
     public List<ReservationResponse> getMyReservations(Long userId) {
+        log.debug("내 예약 목록 조회 - userId: {}", userId);
+
         User user = findUser(userId);
         List<Reservation> reservations = reservationRepository.findByUserIdOrderByCreatedAtDesc(userId);
 
@@ -137,6 +141,8 @@ public class ReservationService {
     }
 
     public ReservationResponse getReservation(Long id) {
+        log.debug("예약 단건 조회 - reservationId: {}", id);
+
         Reservation reservation = findReservation(id);
         User user = userRepository.findById(reservation.getUserId()).orElse(null);
         String resourceName = resolveResourceNameForRead(reservation.getResourceType(), reservation.getResourceId());

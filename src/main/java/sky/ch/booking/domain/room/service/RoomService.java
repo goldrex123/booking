@@ -31,6 +31,8 @@ public class RoomService {
     private final ReservationRepository reservationRepository;
 
     public List<RoomResponse> getAllRooms() {
+        log.debug("회의실 목록 조회");
+
         return roomRepository.findAll().stream()
                 .map(RoomResponse::from)
                 .toList();
@@ -72,6 +74,8 @@ public class RoomService {
     }
 
     public List<RoomResponse> getAvailableRoom(LocalDateTime startAt, LocalDateTime endAt, Long excludeId) {
+        log.debug("예약 가능 회의실 조회 - startAt: {}, endAt: {}, excludeId: {}", startAt, endAt, excludeId);
+
         if (!startAt.isBefore(endAt)) {
             throw new RoomException(RoomErrorCode.INVALID_DATE_RANGE);
         }
