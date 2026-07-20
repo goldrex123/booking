@@ -20,32 +20,32 @@ public class GlobalExceptionHandler {
 
     @ExceptionHandler(BusinessException.class)
     public ResponseEntity<ApiResponse<Void>> handleBusinessException(BusinessException e) {
-        log.error("Handle BusinessException - {}", e.getMessage());
+        log.warn("Handle BusinessException - {}", e.getMessage());
         BaseCode errorCode = e.getErrorCode();
         return ResponseEntity.status(errorCode.getHttpStatus()).body(ApiResponse.fail(errorCode));
     }
 
     @ExceptionHandler(HttpMessageNotReadableException.class)
     public ResponseEntity<ApiResponse<Void>> handleHttpMessageNotReadable(HttpMessageNotReadableException e) {
-        log.error("Handle HttpMessageNotReadableException - {}", e.getMessage());
+        log.warn("Handle HttpMessageNotReadableException - {}", e.getMessage());
         return ResponseEntity.badRequest().body(ApiResponse.fail(CommonCode.INVALID_INPUT));
     }
 
     @ExceptionHandler(MissingRequestCookieException.class)
     public ResponseEntity<ApiResponse<Void>> handleMissingRequestCookie(MissingRequestCookieException e) {
-        log.error("Handle MissingRequestCookieException - {}", e.getMessage());
+        log.warn("Handle MissingRequestCookieException - {}", e.getMessage());
         return ResponseEntity.badRequest().body(ApiResponse.fail(CommonCode.INVALID_INPUT));
     }
 
     @ExceptionHandler(MissingServletRequestParameterException.class)
     public ResponseEntity<ApiResponse<Void>> handleMissingRequestParam(MissingServletRequestParameterException e) {
-        log.error("Handle MissingServletRequestParameterException - {}", e.getMessage());
+        log.warn("Handle MissingServletRequestParameterException - {}", e.getMessage());
         return ResponseEntity.badRequest().body(ApiResponse.fail(CommonCode.INVALID_INPUT));
     }
 
     @ExceptionHandler(MethodArgumentNotValidException.class)
     public ResponseEntity<ApiResponse<Void>> handleValidationException(MethodArgumentNotValidException e) {
-        log.error("Handle MethodArgumentNotValidException - {}", e.getMessage());
+        log.warn("Handle MethodArgumentNotValidException - {}", e.getMessage());
         String message = e.getBindingResult().getFieldErrors().stream()
                 .findFirst()
                 .map(FieldError::getDefaultMessage)
