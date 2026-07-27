@@ -1,3 +1,5 @@
+name: booking
+
 services:
   app:
     build: .

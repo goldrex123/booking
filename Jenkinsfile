@@ -12,7 +12,7 @@ pipeline {
             steps {
                 sh '''
                     chmod +x gradlew
-                    ./gradlew test --no-daemon
+                    ./gradlew clean test --no-daemon
                 '''
             }
             post {
@@ -30,13 +30,24 @@ pipeline {
 
         stage('Deploy') {
             steps {
-                withCredentials([file(credentialsId: 'booking-env-file', variable: 'ENV_FILE')]) {
-                    sh 'cp "$ENV_FILE" .env'
+                withCredentials([
+                    file(credentialsId: 'booking-env-file', variable: 'ENV_FILE'),
+                    file(credentialsId: 'booking-application-prod-yaml', variable: 'PROD_YAML_FILE')
+                ]) {
+                    sh '''
+                        install -m 600 "$ENV_FILE" .env
+                        cp "$PROD_YAML_FILE" src/main/resources/application-prod.yaml
+                    '''
                 }
                 sh '''
                     chmod +x deploy.sh
                     ./deploy.sh
                 '''
+            }
+            post {
+                always {
+                    sh 'rm -f .env'
+                }
             }
         }
     }
