@@ -36,7 +36,7 @@ pipeline {
                 ]) {
                     sh '''
                         install -m 600 "$ENV_FILE" .env
-                        cp "$PROD_YAML_FILE" src/main/resources/application-prod.yaml
+                        install -m 600 "$PROD_YAML_FILE" src/main/resources/application-prod.yaml
                     '''
                 }
                 sh '''
@@ -46,7 +46,7 @@ pipeline {
             }
             post {
                 always {
-                    sh 'rm -f .env'
+                    sh 'rm -f .env src/main/resources/application-prod.yaml'
                 }
             }
         }
