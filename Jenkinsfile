@@ -1,27 +1,43 @@
 pipeline {
     agent any
 
-    environment {
-        APP_NAME = 'booking'
-        DOCKER_IAMGE = 'booking-app:latest'
-        DOCKER_NETWORK = 'sky_default'
-    }
-
     stages {
-        stage('Chekcout') {
+        stage('Checkout') {
             steps {
                 checkout scm
             }
         }
 
-        stage('Build Gradle') {
+        stage('Test') {
             steps {
                 sh '''
                     chmod +x gradlew
-                    ./gradlew clean build -x test --no-daemon
+                    ./gradlew test --no-daemon
+                '''
+            }
+            post {
+                always {
+                    junit '**/build/test-results/test/*.xml'
+                }
+            }
+        }
+
+        stage('Build') {
+            steps {
+                sh './gradlew build -x test --no-daemon'
+            }
+        }
+
+        stage('Deploy') {
+            steps {
+                withCredentials([file(credentialsId: 'booking-env-file', variable: 'ENV_FILE')]) {
+                    sh 'cp "$ENV_FILE" .env'
+                }
+                sh '''
+                    chmod +x deploy.sh
+                    ./deploy.sh
                 '''
             }
         }
     }
-
 }
